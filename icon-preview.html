@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Icon Options</title>
+  <style>
+    body { background: #f1f5f9; font-family: system-ui, sans-serif; display: flex; gap: 40px; padding: 40px; flex-wrap: wrap; }
+    .option { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .option span { font-size: 0.9rem; font-weight: 600; color: #374151; }
+    svg { border-radius: 22%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+  </style>
+</head>
+<body>
+
+  <!-- Option A: Rising bar chart -->
+  <div class="option">
+    <svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="96" fill="#16a34a"/>
+      <rect x="80" y="310" width="70" height="130" rx="10" fill="white" opacity="0.5"/>
+      <rect x="180" y="230" width="70" height="210" rx="10" fill="white" opacity="0.7"/>
+      <rect x="280" y="150" width="70" height="290" rx="10" fill="white" opacity="0.9"/>
+      <rect x="380" y="90" width="70" height="350" rx="10" fill="white"/>
+      <line x1="64" y1="440" x2="448" y2="440" stroke="white" stroke-width="18" stroke-linecap="round"/>
+    </svg>
+    <span>A — Bar Chart</span>
+  </div>
+
+  <!-- Option B: Dollar sign in leaf -->
+  <div class="option">
+    <svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="96" fill="#15803d"/>
+      <circle cx="256" cy="256" r="170" fill="white" opacity="0.15"/>
+      <circle cx="256" cy="256" r="130" fill="white" opacity="0.15"/>
+      <text x="256" y="310" font-family="Georgia, serif" font-size="220" font-weight="900" fill="white" text-anchor="middle">$</text>
+    </svg>
+    <span>B — Dollar Sign</span>
+  </div>
+
+  <!-- Option C: Upward arrow / growth -->
+  <div class="option">
+    <svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="96" fill="#166534"/>
+      <!-- line chart -->
+      <polyline points="60,400 160,300 260,220 360,140 452,80" fill="none" stroke="white" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+      <!-- arrow head -->
+      <polygon points="452,80 390,90 420,150" fill="white" opacity="0.6"/>
+      <!-- dot on tip -->
+      <circle cx="452" cy="80" r="28" fill="white"/>
+      <!-- baseline -->
+      <line x1="60" y1="430" x2="452" y2="430" stroke="white" stroke-width="14" stroke-linecap="round" opacity="0.4"/>
+      <line x1="60" y1="80" x2="60" y2="430" stroke="white" stroke-width="14" stroke-linecap="round" opacity="0.4"/>
+    </svg>
+    <span>C — Growth Chart</span>
+  </div>
+
+  <!-- Option D: Wallet -->
+  <div class="option">
+    <svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="96" fill="#14532d"/>
+      <!-- wallet body -->
+      <rect x="60" y="170" width="392" height="240" rx="30" fill="white" opacity="0.95"/>
+      <!-- wallet flap top -->
+      <rect x="60" y="140" width="392" height="60" rx="20" fill="white" opacity="0.6"/>
+      <!-- coin pocket -->
+      <rect x="310" y="210" width="120" height="110" rx="20" fill="#14532d" opacity="0.2"/>
+      <circle cx="370" cy="265" r="30" fill="#14532d" opacity="0.25"/>
+      <!-- card lines -->
+      <rect x="90" y="225" width="170" height="18" rx="9" fill="#14532d" opacity="0.2"/>
+      <rect x="90" y="258" width="120" height="14" rx="7" fill="#14532d" opacity="0.15"/>
+      <rect x="90" y="288" width="90"  height="14" rx="7" fill="#14532d" opacity="0.15"/>
+    </svg>
+    <span>D — Wallet</span>
+  </div>
+
+</body>
+</html>
