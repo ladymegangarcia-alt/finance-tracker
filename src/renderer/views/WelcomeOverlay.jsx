@@ -9,7 +9,7 @@ const STEPS = [
   {
     emoji: "📄",
     title: "Import your statements",
-    body: 'Click \u201c+ Import Statement\u201d in the sidebar or drag a CSV or PDF file onto the main area. You can import files from multiple banks and credit cards.',
+    body: 'Click “+ Import CSV” in the sidebar or drag a CSV file onto the main area. If your bank only provides PDF statements, create the account in Accounts and enter the transactions manually.',
   },
   {
     emoji: "🏦",

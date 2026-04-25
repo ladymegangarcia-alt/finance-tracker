@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES } from "../categories.js";
 
 function fmt(n) {
@@ -18,7 +18,7 @@ function vendorName(description) {
 
 const TRANSFER_RE = /transfer\s+(debit\s+to|credit\s+from)|online\s+transfer\s+(to|from)|overdraft\s+protection\s+xfer\s+(to|from)/i;
 
-export default function Transactions({ transactions, bulkUpdateTransactions, customCategories = [], addCustomCategory, accounts = [], deleteTransfer, linkTransfer, subcategories = {}, addSubcategory }) {
+export default function Transactions({ transactions, bulkUpdateTransactions, customCategories = [], addCustomCategory, accounts = [], accountFilter = "all", addTransaction, deleteTransfer, linkTransfer, subcategories = {}, addSubcategory, addTxnTrigger = 0 }) {
   const [search,    setSearch]    = useState("");
   const [catFilter, setCatFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -27,6 +27,15 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
   // Staged edits: { [transactionId]: { category?, type?, subcategory?, reconciled? } }
   const [pendingEdits, setPendingEdits] = useState({});
   const [saved, setSaved] = useState(false);
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newTxnDate, setNewTxnDate] = useState("");
+  const [newTxnDescription, setNewTxnDescription] = useState("");
+  const [newTxnAmount, setNewTxnAmount] = useState("");
+  const [newTxnType, setNewTxnType] = useState("debit");
+  const [newTxnAccountId, setNewTxnAccountId] = useState("");
+  const [newTxnCategory, setNewTxnCategory] = useState("");
+  const [newTxnSubcategory, setNewTxnSubcategory] = useState("");
 
   // New category modal
   const [modal, setModal] = useState(null);
@@ -76,6 +85,46 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
     const s = new Set(transactions.map((t) => t.category));
     return ["All", ...Array.from(s).sort()];
   }, [transactions]);
+
+  function todayStr() {
+    return new Date().toISOString().split("T")[0];
+  }
+
+  function openAddTransaction() {
+    setShowAddForm(true);
+    setNewTxnDate(todayStr());
+    setNewTxnDescription("");
+    setNewTxnAmount("");
+    setNewTxnType("debit");
+    setNewTxnAccountId(accountFilter !== "all" ? accountFilter : accounts[0]?.id || "");
+    setNewTxnCategory(allCategories[0] || "");
+    setNewTxnSubcategory("");
+  }
+
+  useEffect(() => {
+    if (!addTxnTrigger) return;
+    openAddTransaction();
+  }, [addTxnTrigger]);
+
+  function handleAddTransaction(e) {
+    e.preventDefault();
+    if (!newTxnDate || !newTxnDescription.trim() || !newTxnAmount || !newTxnAccountId) return;
+    const amount = parseFloat(newTxnAmount);
+    if (Number.isNaN(amount) || amount === 0) return;
+    addTransaction({
+      date: new Date(newTxnDate),
+      dateStr: newTxnDate,
+      description: newTxnDescription.trim(),
+      amount: Math.abs(amount),
+      type: newTxnType,
+      category: newTxnCategory || allCategories[0] || "",
+      subcategory: newTxnSubcategory || undefined,
+      accountId: newTxnAccountId,
+      reconciled: false,
+      fileId: null,
+    });
+    setShowAddForm(false);
+  }
 
   const filtered = useMemo(() => {
     let rows = transactions;
@@ -234,6 +283,16 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
     <div className="view">
       <div className="view-header">
         <h2>Transactions</h2>
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
+          <button className="btn-new-cat" onClick={openAddTransaction} disabled={accounts.length === 0} title={accounts.length === 0 ? "Add an account first" : undefined}>
+            + Add Transaction
+          </button>
+        </div>
+        {accounts.length === 0 && (
+          <div className="empty-hint" style={{ marginTop: 12 }}>
+            Add an account in the Accounts tab first, then return here to enter transactions manually.
+          </div>
+        )}
         <div className="edit-actions">
           {saved && <span className="edit-saved">✓ Changes saved</span>}
           {pendingCount > 0 && (
@@ -245,6 +304,63 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
           )}
         </div>
       </div>
+
+      {showAddForm && (
+        <form className="modal modal-add-transaction" onSubmit={handleAddTransaction} style={{ position: "relative", padding: "16px", marginBottom: "16px", background: "#fff", borderRadius: "12px", boxShadow: "0 12px 24px rgba(15,23,42,.08)" }}>
+          <div className="modal-title" style={{ marginBottom: 12 }}>New Transaction</div>
+          <div className="modal-field" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <label>Date</label>
+              <input className="modal-input" type="date" value={newTxnDate} onChange={(e) => setNewTxnDate(e.target.value)} autoFocus />
+            </div>
+            <div>
+              <label>Account</label>
+              <select className="modal-select" value={newTxnAccountId} onChange={(e) => setNewTxnAccountId(e.target.value)}>
+                {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="modal-field" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <label>Description</label>
+              <input className="modal-input" type="text" placeholder="Description" value={newTxnDescription} onChange={(e) => setNewTxnDescription(e.target.value)} />
+            </div>
+            <div>
+              <label>Amount</label>
+              <div className="acct-form-bal" style={{ width: "100%" }}>
+                <span className="balance-prefix">$</span>
+                <input className="modal-input" type="number" step="0.01" placeholder="0.00" value={newTxnAmount} onChange={(e) => setNewTxnAmount(e.target.value)} style={{ width: "100%" }} />
+              </div>
+              <div style={{ marginTop: 6, fontSize: "0.85rem", color: "#475569" }}>
+                Enter a positive value. Use Debit for spending and Credit for refunds or deposits.
+              </div>
+            </div>
+          </div>
+          <div className="modal-field" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <label>Type</label>
+              <select className="modal-select" value={newTxnType} onChange={(e) => setNewTxnType(e.target.value)}>
+                <option value="debit">Debit</option>
+                <option value="credit">Credit</option>
+              </select>
+            </div>
+            <div>
+              <label>Category</label>
+              <select className="modal-select" value={newTxnCategory} onChange={(e) => setNewTxnCategory(e.target.value)}>
+                {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label>Subcategory</label>
+              <input className="modal-input" type="text" placeholder="Optional" value={newTxnSubcategory} onChange={(e) => setNewTxnSubcategory(e.target.value)} />
+            </div>
+          </div>
+          <div className="modal-actions" style={{ justifyContent: "flex-end", gap: 8 }}>
+            <button type="button" className="btn-sm" onClick={() => setShowAddForm(false)}>Cancel</button>
+            <button type="submit" className="btn-sm btn-save" disabled={!newTxnDate || !newTxnDescription.trim() || !newTxnAmount || !newTxnAccountId}>Add transaction</button>
+          </div>
+        </form>
+      )}
 
       {/* New category modal */}
       {modal && (

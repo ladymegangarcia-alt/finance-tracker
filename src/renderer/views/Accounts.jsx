@@ -10,7 +10,7 @@ function todayStr() {
   return new Date().toISOString().split("T")[0];
 }
 
-export default function Accounts({ accounts, addAccount, updateAccount, deleteAccount, loadedFiles, allTransactions, createTransfer, deleteTransfer }) {
+export default function Accounts({ accounts, addAccount, updateAccount, deleteAccount, loadedFiles, allTransactions, createTransfer, deleteTransfer, onAccountCreated, onAddTransaction }) {
   const [showForm,   setShowForm]   = useState(false);
   const [editingId,  setEditingId]  = useState(null);
   const [formName,   setFormName]   = useState("");
@@ -83,11 +83,14 @@ export default function Accounts({ accounts, addAccount, updateAccount, deleteAc
     const bal = parseFloat(formBal) || 0;
     if (editingId) {
       updateAccount(editingId, { name, type: formType, openingBalance: bal, last4: formLast4 });
-    } else {
-      addAccount(name, formType, bal, formLast4);
+      setShowForm(false);
+      setEditingId(null);
+      return;
     }
+    const newAccountId = addAccount(name, formType, bal, formLast4);
     setShowForm(false);
     setEditingId(null);
+    if (onAccountCreated) onAccountCreated(newAccountId);
   }
 
   function openTransferModal() {
@@ -276,6 +279,9 @@ export default function Accounts({ accounts, addAccount, updateAccount, deleteAc
                 </div>
                 <div className="acct-card-actions">
                   <button className="btn-sm" onClick={() => openEdit(a)}>Edit</button>
+                  <button className="btn-sm btn-add-txn" onClick={() => onAddTransaction?.(a.id)}>
+                    + Add Transaction
+                  </button>
                   <button
                     className="btn-sm btn-danger"
                     onClick={() => deleteAccount(a.id)}

@@ -246,6 +246,20 @@
 
 .btn-primary:hover { background: #2563eb; }
 
+.btn-secondary {
+  padding: 12px 28px;
+  background: #e5e7eb;
+  color: #111827;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-secondary:hover { background: #d1d5db; }
+
 /* ── Error banner ── */
 .error-banner {
   display: flex;
@@ -953,6 +967,13 @@
   color: #0284c7;
 }
 .btn-transfer:hover { background: #e0f2fe; }
+
+.btn-sm.btn-add-txn {
+  border-color: #34d399;
+  color: #047857;
+  background: #dcfce7;
+}
+.btn-sm.btn-add-txn:hover { background: #bbf7d0; }
 
 /* Transfer modal */
 .modal-transfer { width: min(400px, 92vw); }

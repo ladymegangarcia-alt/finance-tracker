@@ -9,7 +9,6 @@ import Transactions from "./views/Transactions.jsx";
 import Reconciled from "./views/Reconciled.jsx";
 import Accounts from "./views/Accounts.jsx";
 import Trends from "./views/Trends.jsx";
-import PDFImportModal from "./views/PDFImportModal.jsx";
 import Categories from "./views/Categories.jsx";
 import HelpModal from "./views/HelpModal.jsx";
 import WelcomeOverlay from "./views/WelcomeOverlay.jsx";
@@ -98,6 +97,7 @@ export default function App() {
   const [pendingFile,    setPendingFile]    = useState(null);  // File waiting for account pick
   const [showHelp,       setShowHelp]       = useState(false);
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem("ft-welcomed"));
+  const [addTxnTrigger,  setAddTxnTrigger]  = useState(0);
 
   // Import modal state
   const [importAccountId, setImportAccountId] = useState(null);
@@ -107,10 +107,6 @@ export default function App() {
   const fileInputRef   = useRef(null);
   const importDataRef  = useRef(null);
 
-  // PDF import state
-  const [pendingPDFFile, setPendingPDFFile] = useState(null);
-  const [pendingPDFRows, setPendingPDFRows] = useState(null);
-  const [pdfParsing,     setPdfParsing]     = useState(false);
 
   // ── Accounts ────────────────────────────────────────────────────
   const setAccounts = useCallback((fn) => {
@@ -329,6 +325,22 @@ export default function App() {
     });
   }, [loadedFiles, budgets, openingBalance]);
 
+  const addTransaction = useCallback((txn) => {
+    const transaction = {
+      ...txn,
+      id: `txn-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+      amount: Math.abs(txn.amount),
+      date: txn.date ? new Date(txn.date) : null,
+      dateStr: txn.dateStr ?? (txn.date ? txn.date.toISOString().split("T")[0] : ""),
+      fileId: txn.fileId ?? null,
+    };
+    const updatedTxns = [...allTransactions, transaction];
+    setAllTransactions(updatedTxns);
+    saveStored(updatedTxns, loadedFiles, budgets, openingBalance, accountsRef.current);
+    if (transaction.date) setYearFilter(transaction.date.getFullYear());
+    setTab("transactions");
+  }, [allTransactions, loadedFiles, budgets, openingBalance]);
+
   // ── Filtered transactions ────────────────────────────────────────
   const transactions = useMemo(
     () => allTransactions.filter((t) => {
@@ -422,60 +434,6 @@ export default function App() {
     saveStored([], [], budgets, openingBalance, accountsRef.current);
   }, [budgets, openingBalance]);
 
-  // ── PDF import ───────────────────────────────────────────────────
-  async function handlePDFFile(file) {
-    setPdfParsing(true);
-    setError(null);
-    try {
-      const { parsePDFStatement } = await import("./parsePDF.js");
-      const buffer = await file.arrayBuffer();
-      const rows   = await parsePDFStatement(buffer);
-      setPendingPDFFile(file);
-      setPendingPDFRows(rows);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setPdfParsing(false);
-    }
-  }
-
-  function handleConfirmPDFImport(selectedRows, existingAccountId, { newName, newType, isNew }) {
-    let accountId = existingAccountId;
-    if (isNew) accountId = addAccount(newName, newType, 0);
-
-    const fileId    = `${Date.now()}`;
-    const tagged    = selectedRows.map((t, i) => ({
-      ...t,
-      id:        `${fileId}-${i}`,
-      fileId,
-      accountId: accountId || null,
-      rawRow:    undefined,
-    }));
-
-    const newRange  = dateRangeOf(tagged);
-    const newFile   = {
-      id:        fileId,
-      name:      pendingPDFFile.name,
-      accountId: accountId || null,
-      loadedAt:  new Date().toISOString(),
-      count:     tagged.length,
-      dateRange: newRange?.label ?? "Unknown dates",
-      minDate:   newRange?.min?.toISOString() ?? null,
-      maxDate:   newRange?.max?.toISOString() ?? null,
-    };
-
-    const updatedTxns  = [...allTransactions, ...tagged];
-    const updatedFiles = [...loadedFiles, newFile];
-    setAllTransactions(updatedTxns);
-    setLoadedFiles(updatedFiles);
-    saveStored(updatedTxns, updatedFiles, budgets, openingBalance, accountsRef.current);
-    setTab("dashboard");
-    if (accountId) setAccountFilter(accountId);
-    if (newRange?.max) setYearFilter(newRange.max.getFullYear());
-
-    setPendingPDFFile(null);
-    setPendingPDFRows(null);
-  }
 
   // ── Import modal handlers ────────────────────────────────────────
   function openImportModal(file) {
@@ -502,16 +460,15 @@ export default function App() {
     setDragging(false);
     const file = e.dataTransfer.files[0];
     if (!file) return;
-    if (file.name.endsWith(".csv"))  openImportModal(file);
-    else if (file.name.endsWith(".pdf")) handlePDFFile(file);
-    else setError("Please drop a CSV or PDF file.");
-  }, [accounts]);
+    if (file.name.endsWith(".csv")) openImportModal(file);
+    else setError("Please drop a CSV file.");
+  }, []);
 
   const handleFileInput = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.name.endsWith(".pdf")) handlePDFFile(file);
-    else openImportModal(file);
+    if (file.name.endsWith(".csv")) openImportModal(file);
+    else setError("Please select a CSV file.");
     e.target.value = "";
   };
 
@@ -622,11 +579,18 @@ export default function App() {
 
         {/* Import button */}
         <button className="btn-import" onClick={() => fileInputRef.current.click()}>
-          + Import Statement
+          + Import CSV
         </button>
-        <input ref={fileInputRef} type="file" accept=".csv,.pdf" style={{ display: "none" }} onChange={handleFileInput} />
+        <button className="btn-secondary" onClick={() => {
+          setTab("transactions");
+          setAddTxnTrigger((prev) => prev + 1);
+        }} disabled={accounts.length === 0} style={{ marginTop: 10 }}>
+          + Add Transaction
+        </button>
+        <input ref={fileInputRef} type="file" accept=".csv" style={{ display: "none" }} onChange={handleFileInput} />
 
         {/* Backup / Restore */}
+
         <div className="sidebar-backup-row">
           <button className="btn-backup" onClick={exportBackup} title="Download all your data as a backup file">
             ⬇ Export Backup
@@ -751,36 +715,20 @@ export default function App() {
           </div>
         )}
 
-        {/* ── PDF parsing spinner ── */}
-        {pdfParsing && (
-          <div className="modal-overlay">
-            <div className="modal pdf-parsing-modal">
-              <div className="pdf-spinner" />
-              <div className="pdf-parsing-msg">Reading PDF statement…</div>
-            </div>
-          </div>
-        )}
-
-        {/* ── PDF import preview modal ── */}
-        {pendingPDFRows && !pdfParsing && (
-          <PDFImportModal
-            fileName={pendingPDFFile.name}
-            rows={pendingPDFRows}
-            accounts={accounts}
-            onConfirm={handleConfirmPDFImport}
-            onCancel={() => { setPendingPDFRows(null); setPendingPDFFile(null); }}
-          />
-        )}
 
         {!hasData ? (
           <div className="empty-state">
             <div className="empty-icon">💳</div>
             <h1>Finance Tracker</h1>
-            <p>Import your first bank or credit card statement to get started. Supports <strong>CSV</strong> and <strong>PDF</strong> files. Each month you can add a new file — all data is saved in your browser.</p>
+            <p>Import your first bank or credit card statement to get started. Supports <strong>CSV</strong> files. If your issuer only provides PDF statements, create the account in Accounts and add transactions manually in Transactions.</p>
             <button className="btn-primary" onClick={() => fileInputRef.current.click()}>
-              Browse for CSV or PDF file
+              Browse for CSV file
             </button>
-            <p className="empty-hint">or drag & drop a CSV or PDF file anywhere on this window</p>
+            <button className="btn-secondary" onClick={() => setTab("accounts")}>
+              Create an account manually
+            </button>
+            <p className="empty-hint">or drag & drop a CSV file anywhere on this window</p>
+            <p className="empty-hint">Then use the Transactions tab to add entries manually if you do not have a CSV export.</p>
           </div>
         ) : (
           <>
@@ -805,9 +753,17 @@ export default function App() {
             {tab === "trends"       && <Trends        expenses={expenses} income={income} />}
             {tab === "merchants"    && <TopMerchants  expenses={expenses} />}
             {tab === "budgets"      && <Budgets       expenses={expenses} budgets={budgets} setBudgets={setBudgets} />}
-            {tab === "transactions" && <Transactions  transactions={transactions} bulkUpdateTransactions={bulkUpdateTransactions} customCategories={customCategories} addCustomCategory={addCustomCategory} accounts={accounts} deleteTransfer={deleteTransfer} linkTransfer={linkTransfer} subcategories={subcategories} addSubcategory={addSubcategory} />}
+            {tab === "transactions" && <Transactions  transactions={transactions} bulkUpdateTransactions={bulkUpdateTransactions} customCategories={customCategories} addCustomCategory={addCustomCategory} accounts={accounts} accountFilter={accountFilter} addTransaction={addTransaction} deleteTransfer={deleteTransfer} linkTransfer={linkTransfer} subcategories={subcategories} addSubcategory={addSubcategory} addTxnTrigger={addTxnTrigger} />}
             {tab === "reconciled"   && <Reconciled    transactions={transactions} bulkUpdateTransactions={bulkUpdateTransactions} customCategories={customCategories} addCustomCategory={addCustomCategory} accounts={accounts} deleteTransfer={deleteTransfer} linkTransfer={linkTransfer} subcategories={subcategories} addSubcategory={addSubcategory} />}
-            {tab === "accounts"     && <Accounts      accounts={accounts} addAccount={addAccount} updateAccount={updateAccount} deleteAccount={deleteAccount} loadedFiles={loadedFiles} allTransactions={allTransactions} createTransfer={createTransfer} deleteTransfer={deleteTransfer} />}
+            {tab === "accounts"     && <Accounts      accounts={accounts} addAccount={addAccount} updateAccount={updateAccount} deleteAccount={deleteAccount} loadedFiles={loadedFiles} allTransactions={allTransactions} createTransfer={createTransfer} deleteTransfer={deleteTransfer} onAccountCreated={(id) => {
+              setTab("transactions");
+              setAccountFilter(id);
+              setAddTxnTrigger((prev) => prev + 1);
+            }} onAddTransaction={(id) => {
+              setTab("transactions");
+              setAccountFilter(id);
+              setAddTxnTrigger((prev) => prev + 1);
+            }} />}
             {tab === "categories"   && <Categories    transactions={allTransactions} customCategories={customCategories} subcategories={subcategories} renameCategory={renameCategory} renameSubcategory={renameSubcategory} deleteSubcategory={deleteSubcategory} addSubcategory={addSubcategory} />}
           </>
         )}

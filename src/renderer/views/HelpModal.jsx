@@ -4,7 +4,7 @@ const SECTIONS = [
   {
     title: "Getting Started",
     content: [
-      { q: "How do I add my bank data?", a: 'Click \u201c+ Import Statement\u201d in the sidebar (or drag a file onto the main area). The app accepts CSV files exported from your bank and PDF statements. You\'ll be asked to assign the file to an account.' },
+      { q: "How do I add my bank data?", a: 'Create an account in the Accounts tab first. Then import CSV statements from your bank or add transactions manually in the Transactions tab.' },
       { q: "What's an Account?", a: 'An account represents one bank or credit card (e.g. \u201cChase Checking\u201d, \u201cCiti Visa\u201d). Go to the Accounts tab to create accounts before or during import. Each file is linked to one account.' },
       { q: "What if I close the browser \u2014 do I lose my data?", a: "No. All data is saved in your browser's local storage and survives page refreshes and browser restarts. Use Export Backup to save a file you can take to another computer." },
     ],
@@ -13,8 +13,8 @@ const SECTIONS = [
     title: "Importing Statements",
     content: [
       { q: "What CSV format does the app expect?", a: "Most bank exports work automatically. The importer looks for columns named Date, Description, and Amount (or close variants). A preview lets you confirm before committing." },
-      { q: "Can I import PDF statements?", a: "Yes \u2014 upload a PDF and the app extracts transactions using a text parser. A preview table lets you check and deselect any rows before importing." },
-      { q: "Can I import files from multiple accounts?", a: 'Yes. Import as many files as you like, each assigned to its own account. The sidebar lets you switch between \u201cAll accounts\u201d and a specific account.' },
+      { q: "Can I import PDF statements?", a: "This app supports CSV export files only. If your bank only provides PDF statements, check the website for a CSV download option and otherwise enter the transactions manually." },
+      { q: "Can I import files from multiple accounts?", a: 'Yes. Import as many CSV files as you like, each assigned to its own account. The sidebar lets you switch between “All accounts” and a specific account.' },
     ],
   },
   {
