@@ -16,7 +16,7 @@ function vendorName(description) {
   return words.slice(0, 2).join(" ") || "";
 }
 
-const TRANSFER_RE = /transfer\s+(debit\s+to|credit\s+from)|online\s+transfer\s+(to|from)|overdraft\s+protection\s+xfer\s+(to|from)/i;
+const TRANSFER_RE = /transfer\s+(debit\s+to|credit\s+from)|online\s+transfer\s+(to|from)|overdraft\s+protection\s+xfer\s+(to|from)|online\s+pym[ty]|pymt\b|pymnt\b|autopay|auto[-\s]pay|payment\s*-?\s*thank|thank\s+you\s+for\s+(your\s+)?payment|bill\s+pay(ment)?|mobile\s+pay(ment)?|web\s+pay(ment)?|ach\s+(pay(ment)?|pmt\b)|wire\s+transfer|e-?payment|zelle|direct\s+pay(ment)?|credit\s+card\s+pay(ment)?/i;
 
 export default function Transactions({ transactions, bulkUpdateTransactions, customCategories = [], addCustomCategory, accounts = [], accountFilter = "all", addTransaction, deleteTransfer, linkTransfer, subcategories = {}, addSubcategory, addTxnTrigger = 0 }) {
   const [search,    setSearch]    = useState("");
@@ -50,7 +50,7 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
   const [newSubcatText,    setNewSubcatText]     = useState("");
 
   const allCategories = useMemo(
-    () => [...CATEGORIES, ...customCategories.map((c) => c.name)],
+    () => [...CATEGORIES, ...customCategories.map((c) => c.name)].sort((a, b) => a.localeCompare(b)),
     [customCategories]
   );
 
@@ -573,17 +573,21 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
                       value={cat}
                       onChange={(e) => handleCategoryChange(t.id, e.target.value)}
                     >
+                      {linkableAccounts.length > 0 && (
+                        <>
+                          {linkableAccounts.map((a) => (
+                            <option key={a.id} value={`__link__${a.id}`}>
+                              ⇄ Link transfer → {a.name}{a.last4 ? ` (••${a.last4})` : ""}
+                            </option>
+                          ))}
+                          <option disabled>──────────</option>
+                        </>
+                      )}
                       {allCategories.map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                       <option disabled>──────────</option>
                       <option value="__new__">+ Add new category…</option>
-                      {linkableAccounts.length > 0 && <option disabled>──────────</option>}
-                      {linkableAccounts.map((a) => (
-                        <option key={a.id} value={`__link__${a.id}`}>
-                          ⇄ Link transfer → {a.name}{a.last4 ? ` (••${a.last4})` : ""}
-                        </option>
-                      ))}
                     </select>
                     {/* Subcategory selector */}
                     {addingSubcatId === t.id ? (
