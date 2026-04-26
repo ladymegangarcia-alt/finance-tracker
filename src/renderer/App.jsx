@@ -14,18 +14,6 @@ import HelpModal from "./views/HelpModal.jsx";
 import WelcomeOverlay from "./views/WelcomeOverlay.jsx";
 import "./App.css";
 
-const TABS = [
-  { id: "dashboard",    label: "Dashboard" },
-  { id: "category",     label: "By Category" },
-  { id: "overtime",     label: "Over Time" },
-  { id: "trends",       label: "Trends" },
-  { id: "merchants",    label: "Top Merchants" },
-  { id: "budgets",      label: "Budgets" },
-  { id: "transactions", label: "Transactions" },
-  { id: "reconciled",   label: "Reconciled" },
-  { id: "accounts",     label: "Accounts" },
-  { id: "categories",   label: "Categories" },
-];
 
 const ACCOUNT_COLORS = ["#6366f1","#ec4899","#f59e0b","#10b981","#ef4444","#0ea5e9","#8b5cf6","#f97316","#14b8a6","#a16207"];
 
@@ -98,6 +86,10 @@ export default function App() {
   const [showHelp,       setShowHelp]       = useState(false);
   const [showWelcome,    setShowWelcome]    = useState(() => !localStorage.getItem("ft-welcomed"));
   const [addTxnTrigger,  setAddTxnTrigger]  = useState(0);
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+
+  const toggleGroup = (id) =>
+    setCollapsedGroups((prev) => ({ ...prev, [id]: !prev[id] }));
 
   // Import modal state
   const [importAccountId, setImportAccountId] = useState(null);
@@ -566,7 +558,51 @@ export default function App() {
 
         {/* Nav */}
         <nav className="sidebar-nav">
-          {TABS.map((t) => (
+          {/* Standalone items above Accounts group */}
+          {[{ id: "dashboard", label: "Dashboard" }].map((t) => (
+            <button
+              key={t.id}
+              className={`nav-item ${tab === t.id ? "active" : ""} ${!hasData ? "disabled" : ""}`}
+              onClick={() => hasData && setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+
+          {/* Accounts group */}
+          <div className="nav-group">
+            <button className="nav-group-header" onClick={() => toggleGroup("accounts")}>
+              <span>Accounts</span>
+              <span className={`nav-group-chevron ${collapsedGroups["accounts"] ? "collapsed" : ""}`}>▾</span>
+            </button>
+            {!collapsedGroups["accounts"] && (
+              <>
+                {[
+                  { id: "category",     label: "By Category" },
+                  { id: "overtime",     label: "Over Time" },
+                  { id: "transactions", label: "Transactions" },
+                  { id: "reconciled",   label: "Reconciled" },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    className={`nav-item nav-item-child ${tab === t.id ? "active" : ""} ${!hasData ? "disabled" : ""}`}
+                    onClick={() => hasData && setTab(t.id)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+
+          {/* Remaining standalone items */}
+          {[
+            { id: "trends",    label: "Trends" },
+            { id: "merchants", label: "Top Merchants" },
+            { id: "budgets",   label: "Budgets" },
+            { id: "accounts",  label: "Accounts" },
+            { id: "categories",label: "Categories" },
+          ].map((t) => (
             <button
               key={t.id}
               className={`nav-item ${tab === t.id ? "active" : ""} ${!hasData && t.id !== "accounts" ? "disabled" : ""}`}
@@ -577,52 +613,60 @@ export default function App() {
           ))}
         </nav>
 
-        {/* Import button */}
-        <button className="btn-import" onClick={() => fileInputRef.current.click()}>
-          + Import CSV
-        </button>
-        <button className="btn-secondary" onClick={() => {
-          setTab("transactions");
-          setAddTxnTrigger((prev) => prev + 1);
-        }} disabled={accounts.length === 0} style={{ marginTop: 10 }}>
-          + Add Transaction
-        </button>
-        <input ref={fileInputRef} type="file" accept=".csv" style={{ display: "none" }} onChange={handleFileInput} />
-
-        {/* Backup / Restore */}
-
-        <div className="sidebar-backup-row">
-          <button className="btn-backup" onClick={exportBackup} title="Download all your data as a backup file">
-            ⬇ Export Backup
+        {/* Files group */}
+        <div className="nav-group nav-group-files">
+          <button className="nav-group-header" onClick={() => toggleGroup("files")}>
+            <span>Files</span>
+            <span className={`nav-group-chevron ${collapsedGroups["files"] ? "collapsed" : ""}`}>▾</span>
           </button>
-          <button className="btn-backup" onClick={() => importDataRef.current.click()} title="Restore data from a backup file">
-            ⬆ Import Backup
-          </button>
+          {!collapsedGroups["files"] && (
+            <>
+              <div className="files-group-actions">
+                <button className="btn-import" onClick={() => fileInputRef.current.click()}>
+                  + Import CSV
+                </button>
+                <button className="btn-secondary" onClick={() => {
+                  setTab("transactions");
+                  setAddTxnTrigger((prev) => prev + 1);
+                }} disabled={accounts.length === 0}>
+                  + Add Transaction
+                </button>
+                <div className="sidebar-backup-row">
+                  <button className="btn-backup" onClick={exportBackup} title="Download all your data as a backup file">
+                    ⬇ Export Backup
+                  </button>
+                  <button className="btn-backup" onClick={() => importDataRef.current.click()} title="Restore data from a backup file">
+                    ⬆ Import Backup
+                  </button>
+                </div>
+              </div>
+
+              {loadedFiles.length > 0 && (
+                <div className="files-section">
+                  <div className="files-header">
+                    <span>Loaded files</span>
+                    <button className="btn-clear-all" onClick={clearAll}>Clear all</button>
+                  </div>
+                  {loadedFiles.map((f) => {
+                    const acct = accounts.find((a) => a.id === f.accountId);
+                    return (
+                      <div key={f.id} className="file-entry">
+                        {acct && <span className="acct-dot-sm" style={{ background: acct.color }} />}
+                        <div className="file-entry-info">
+                          <div className="file-entry-name">{f.name}</div>
+                          <div className="file-entry-meta">{acct ? acct.name + " · " : ""}{f.dateRange} · {f.count} rows</div>
+                        </div>
+                        <button className="file-entry-remove" onClick={() => removeFile(f.id)} title="Remove this file's data">✕</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+          <input ref={fileInputRef} type="file" accept=".csv" style={{ display: "none" }} onChange={handleFileInput} />
           <input ref={importDataRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportBackup} />
         </div>
-
-        {/* Loaded files list */}
-        {loadedFiles.length > 0 && (
-          <div className="files-section">
-            <div className="files-header">
-              <span>Loaded files</span>
-              <button className="btn-clear-all" onClick={clearAll}>Clear all</button>
-            </div>
-            {loadedFiles.map((f) => {
-              const acct = accounts.find((a) => a.id === f.accountId);
-              return (
-                <div key={f.id} className="file-entry">
-                  {acct && <span className="acct-dot-sm" style={{ background: acct.color }} />}
-                  <div className="file-entry-info">
-                    <div className="file-entry-name">{f.name}</div>
-                    <div className="file-entry-meta">{acct ? acct.name + " · " : ""}{f.dateRange} · {f.count} rows</div>
-                  </div>
-                  <button className="file-entry-remove" onClick={() => removeFile(f.id)} title="Remove this file's data">✕</button>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </aside>
 
       {/* ── Main ── */}
@@ -716,7 +760,7 @@ export default function App() {
         )}
 
 
-        {!hasData ? (
+        {!hasData && tab !== "accounts" ? (
           <div className="empty-state">
             <div className="empty-icon">💳</div>
             <h1>Finance Tracker</h1>

@@ -116,14 +116,16 @@ export default function Accounts({ accounts, addAccount, updateAccount, deleteAc
     <div className="view">
       <div className="view-header">
         <h2>Accounts</h2>
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          {canTransfer && (
-            <button className="btn-new-cat btn-transfer" onClick={openTransferModal}>
-              ⇄ New Transfer
-            </button>
-          )}
-          <button className="btn-new-cat" onClick={openNew}>+ Add Account</button>
-        </div>
+        {accounts.length > 0 && (
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+            {canTransfer && (
+              <button className="btn-new-cat btn-transfer" onClick={openTransferModal}>
+                ⇄ New Transfer
+              </button>
+            )}
+            <button className="btn-new-cat" onClick={openNew}>+ Add Account</button>
+          </div>
+        )}
       </div>
 
       {/* Account form */}
@@ -240,7 +242,8 @@ export default function Accounts({ accounts, addAccount, updateAccount, deleteAc
 
       {accounts.length === 0 ? (
         <div className="acct-empty">
-          No accounts yet. Add one above, or import a CSV — you'll be prompted to assign it to an account.
+          <button className="btn-import" onClick={openNew}>+ Add Account</button>
+          <p>Or import a CSV — you'll be prompted to assign it to an account.</p>
         </div>
       ) : (
         <div className="acct-list">

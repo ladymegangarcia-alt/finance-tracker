@@ -55,12 +55,12 @@
 
 /* Loaded files list */
 .files-section {
-  margin-top: 12px;
+  margin-top: 8px;
   border-top: 1px solid #2d3748;
-  padding: 10px 0 0;
+  padding: 8px 0 0;
   overflow-y: auto;
   flex-shrink: 0;
-  max-height: 260px;
+  max-height: 200px;
 }
 
 .files-header {
@@ -184,8 +184,61 @@
 .nav-item.active { color: #fff; background: #2d3748; border-left-color: #3b82f6; }
 .nav-item.disabled { opacity: 0.35; cursor: default; }
 
+/* Indented child items inside a nav group */
+.nav-item-child {
+  padding-left: 32px;
+}
+
+/* Nav group container */
+.nav-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 8px 16px 4px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: color 0.15s;
+}
+
+.nav-group-header:hover { color: #94a3b8; }
+
+.nav-group-chevron {
+  font-size: 0.75rem;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.nav-group-chevron.collapsed { transform: rotate(-90deg); }
+
+/* Files group sits at the bottom, outside the flex-1 nav */
+.nav-group-files {
+  border-top: 1px solid #2d3748;
+  padding-top: 4px;
+  flex-shrink: 0;
+}
+
+.files-group-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 0 0;
+}
+
 .btn-import {
-  margin: 12px 16px 0;
+  margin: 6px 16px 0;
   padding: 10px 16px;
   background: #3b82f6;
   color: #fff;
@@ -1193,9 +1246,19 @@
 
 /* ── Accounts view ── */
 .acct-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 60px 0;
   color: #6b7280;
   font-size: 0.9rem;
-  padding: 24px 0;
+}
+
+.acct-empty .btn-import {
+  margin: 0;
+  width: auto;
+  padding: 12px 32px;
 }
 
 .acct-form {
@@ -1409,12 +1472,22 @@
 .subcat-add-row { margin-top: 4px; }
 
 /* ── Sidebar backup row ─────────────────────────────────── */
+/* Override btn-secondary size when used inside the sidebar files group */
+.nav-group-files .btn-secondary {
+  margin: 6px 16px 0;
+  padding: 9px 16px;
+  font-size: 0.85rem;
+  border-radius: 7px;
+  width: calc(100% - 32px);
+  text-align: left;
+}
+
 .sidebar-backup-row {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 0 12px;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
 .btn-backup {

@@ -133,8 +133,8 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
     setEditingBalance(false);
   };
 
-  // Editable only when viewing "All" months and no active account
-  const canEditBalance = !activeAccount && monthFilter == null;
+  // Editable whenever no month filter is applied (per-account balance updates via setOpeningBalance)
+  const canEditBalance = monthFilter == null;
 
   return (
     <div className="view">
@@ -209,11 +209,7 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
               </div>
             )}
             <div className="card-sub">
-              {monthFilter != null
-                ? "calculated from year opening"
-                : activeAccount
-                  ? `${activeAccount.name} · edit in Accounts tab`
-                  : "click to edit"}
+              {monthFilter != null ? "calculated from year opening" : "click ✎ to edit"}
             </div>
           </div>
           <div className="card card-expense">
