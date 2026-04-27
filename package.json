@@ -11,10 +11,12 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@tailwindcss/vite": "^4.2.4",
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^9.2.1",
     "electron": "^28.3.3",
     "electron-builder": "^26.8.1",
+    "tailwindcss": "^4.2.4",
     "vite": "^8.0.3",
     "wait-on": "^9.0.4"
   },

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from "react";
+import Logo from '../components/Logo';
 import { parseStatementCSV } from "./parseCSV.js";
 import Dashboard from "./views/Dashboard.jsx";
 import ByCategory from "./views/ByCategory.jsx";
@@ -513,7 +514,7 @@ export default function App() {
       {/* ── Sidebar ── */}
       <aside className="sidebar">
         <div className="sidebar-brand">
-          Finance Tracker
+          <Logo variant="dark" size={36} />
           <button className="btn-help" onClick={() => setShowHelp(true)} title="Help">?</button>
         </div>
 

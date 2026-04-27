@@ -339,7 +339,7 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
                   <tbody>
                     {categoryDetail.subcats.map((s) => (
                       <tr key={s.name ?? "__none__"}>
-                        <td>{s.name ?? <em style={{ color: "#9ca3af" }}>Untagged</em>}</td>
+                        <td>{s.name ?? <em style={{ color: "#b0b0a4" }}>Untagged</em>}</td>
                         <td>{fmt(s.value)}</td>
                         <td>{categoryDetail.total > 0 ? ((s.value / categoryDetail.total) * 100).toFixed(1) : 0}%</td>
                       </tr>

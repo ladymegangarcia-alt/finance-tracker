@@ -306,7 +306,7 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
       </div>
 
       {showAddForm && (
-        <form className="modal modal-add-transaction" onSubmit={handleAddTransaction} style={{ position: "relative", padding: "16px", marginBottom: "16px", background: "#fff", borderRadius: "12px", boxShadow: "0 12px 24px rgba(15,23,42,.08)" }}>
+        <form className="modal modal-add-transaction" onSubmit={handleAddTransaction} style={{ position: "relative", padding: "16px", marginBottom: "16px", background: "#faf6ec", borderRadius: "12px", boxShadow: "0 12px 24px rgba(15,23,42,.08)" }}>
           <div className="modal-title" style={{ marginBottom: 12 }}>New Transaction</div>
           <div className="modal-field" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div>
@@ -331,7 +331,7 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
                 <span className="balance-prefix">$</span>
                 <input className="modal-input" type="number" step="0.01" placeholder="0.00" value={newTxnAmount} onChange={(e) => setNewTxnAmount(e.target.value)} style={{ width: "100%" }} />
               </div>
-              <div style={{ marginTop: 6, fontSize: "0.85rem", color: "#475569" }}>
+              <div style={{ marginTop: 6, fontSize: "0.85rem", color: "#6b6b62" }}>
                 Enter a positive value. Use Debit for spending and Credit for refunds or deposits.
               </div>
             </div>
@@ -490,7 +490,7 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
           {filtered.length} rows &nbsp;·&nbsp;
           <span style={{ color: "#dc2626" }}>↓ {fmt(totalDebits)}</span>
           &nbsp;
-          <span style={{ color: "#16a34a" }}>↑ {fmt(totalCredits)}</span>
+          <span style={{ color: "#2a7a58" }}>↑ {fmt(totalCredits)}</span>
         </span>
       </div>
 

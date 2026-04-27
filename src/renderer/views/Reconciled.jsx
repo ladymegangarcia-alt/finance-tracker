@@ -226,7 +226,7 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
           {filtered.length} rows &nbsp;·&nbsp;
           <span style={{ color: "#dc2626" }}>↓ {fmt(totalDebits)}</span>
           &nbsp;
-          <span style={{ color: "#16a34a" }}>↑ {fmt(totalCredits)}</span>
+          <span style={{ color: "#2a7a58" }}>↑ {fmt(totalCredits)}</span>
         </span>
       </div>
 

@@ -64,7 +64,7 @@ export default function WelcomeOverlay({ onClose }) {
           {step > 0 && (
             <button className="btn-sm" onClick={() => setStep(step - 1)}>&larr; Back</button>
           )}
-          <button className="btn-sm" onClick={finish} style={{ marginLeft: "auto", color: "#9ca3af" }}>
+          <button className="btn-sm" onClick={finish} style={{ marginLeft: "auto", color: "#b0b0a4" }}>
             Skip
           </button>
           {isLast ? (

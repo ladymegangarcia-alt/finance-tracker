@@ -61,7 +61,7 @@ export default function Budgets({ expenses, budgets, setBudgets }) {
             return (
               <div key={cat} className="budget-row">
                 <div className="budget-info">
-                  <span className="cat-dot" style={{ background: CATEGORY_COLORS[cat] ?? "#9ca3af" }} />
+                  <span className="cat-dot" style={{ background: CATEGORY_COLORS[cat] ?? "#b0b0a4" }} />
                   <span className="budget-cat">{cat}</span>
                   <span className="budget-spent">{fmt(total)}</span>
                   {budget && (
@@ -78,7 +78,7 @@ export default function Budgets({ expenses, budgets, setBudgets }) {
                         className="budget-fill"
                         style={{
                           width: `${pct}%`,
-                          background: pct > 100 ? "#dc2626" : pct > 80 ? "#f59e0b" : "#16a34a",
+                          background: pct > 100 ? "#dc2626" : pct > 80 ? "#c89b3c" : "#2a7a58",
                         }}
                       />
                     </div>

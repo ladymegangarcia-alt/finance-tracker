@@ -216,7 +216,7 @@ export default function Accounts({ accounts, addAccount, updateAccount, deleteAc
                 />
               </div>
               <div className="modal-field">
-                <label>Note <span style={{ color: "#9ca3af", fontWeight: 400 }}>(optional)</span></label>
+                <label>Note <span style={{ color: "#b0b0a4", fontWeight: 400 }}>(optional)</span></label>
                 <input
                   className="modal-input"
                   type="text"
@@ -331,7 +331,7 @@ export default function Accounts({ accounts, addAccount, updateAccount, deleteAc
                       {toAcct?.name ?? "Unknown"}
                     </td>
                     <td>{fmt(x.amount)}</td>
-                    <td style={{ color: "#6b7280" }}>{x.note}</td>
+                    <td style={{ color: "#6b6b62" }}>{x.note}</td>
                     <td>
                       <button
                         className="btn-sm btn-danger"
