@@ -116,6 +116,12 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
       return;
     }
 
+    if (value.startsWith("__ccpay__")) {
+      const peerAccountId = value.slice(9);
+      linkTransfer(transactionId, peerAccountId, "CC Payment");
+      return;
+    }
+
     stageEdit(transactionId, "category", value);
   }
 
@@ -252,12 +258,15 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
               const peerAcct = isTransfer ? accounts.find((a) => a.id === t.transferPeer) : null;
 
               if (isTransfer) {
+                const isCCPayment = t.category === "CC Payment";
                 return (
                   <tr key={t.id} className="row-transfer">
-                    <td><input type="checkbox" disabled checked title="Transfers are automatically reconciled" /></td>
+                    <td><input type="checkbox" disabled checked title={isCCPayment ? "CC payments are automatically reconciled" : "Transfers are automatically reconciled"} /></td>
                     <td className="mono">{t.date ? t.date.toLocaleDateString() : t.dateStr}</td>
                     <td>
-                      <span className="transfer-label">⇄ Transfer</span>
+                      <span className={isCCPayment ? "cc-payment-label" : "transfer-label"}>
+                        {isCCPayment ? "💳 CC Payment" : "⇄ Transfer"}
+                      </span>
                       {peerAcct && (
                         <span className="transfer-peer">
                           {type === "debit" ? "→" : "←"}
@@ -267,7 +276,7 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
                       )}
                       {t.description && <span className="transfer-note"> · {t.description}</span>}
                     </td>
-                    <td><span className="inline-select-static">Transfer</span></td>
+                    <td><span className="inline-select-static">{isCCPayment ? "CC Payment" : "Transfer"}</span></td>
                     <td><span className={`inline-select-static type-static ${type}`}>{type === "debit" ? "Debit" : "Credit"}</span></td>
                     <td className={type === "credit" ? "credit-amt" : ""}>
                       {type === "credit" ? "+" : "-"}{fmt(Math.abs(t.amount))}
@@ -277,7 +286,7 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
                         className="btn-sm btn-danger"
                         style={{ padding: "2px 8px", fontSize: "0.72rem" }}
                         onClick={() => deleteTransfer(t.transferId)}
-                        title="Delete both sides of this transfer"
+                        title={`Delete both sides of this ${isCCPayment ? "CC payment" : "transfer"}`}
                       >
                         Delete
                       </button>
@@ -286,9 +295,20 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
                 );
               }
 
+              const thisAccount = accounts.find((a) => a.id === t.accountId);
+              const isCreditCardAccount = thisAccount?.type === "credit";
               const isPotentialTransfer = TRANSFER_RE.test(t.description) && accounts.length > 0;
+
+              const ccPaymentAccounts = (() => {
+                if (isCreditCardAccount && t.type === "credit")
+                  return accounts.filter((a) => a.id !== t.accountId);
+                if (!isCreditCardAccount && isPotentialTransfer)
+                  return accounts.filter((a) => a.id !== t.accountId && a.type === "credit");
+                return [];
+              })();
+              const ccPayIds = new Set(ccPaymentAccounts.map((a) => a.id));
               const linkableAccounts = isPotentialTransfer
-                ? accounts.filter((a) => a.id !== t.accountId)
+                ? accounts.filter((a) => a.id !== t.accountId && !ccPayIds.has(a.id))
                 : [];
 
               return (
@@ -309,15 +329,18 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
                       value={cat}
                       onChange={(e) => handleCategoryChange(t.id, e.target.value)}
                     >
-                      {linkableAccounts.length > 0 && (
-                        <>
-                          {linkableAccounts.map((a) => (
-                            <option key={a.id} value={`__link__${a.id}`}>
-                              ⇄ Link transfer → {a.name}{a.last4 ? ` (••${a.last4})` : ""}
-                            </option>
-                          ))}
-                          <option disabled>──────────</option>
-                        </>
+                      {ccPaymentAccounts.length > 0 && ccPaymentAccounts.map((a) => (
+                        <option key={`ccpay-${a.id}`} value={`__ccpay__${a.id}`}>
+                          💳 CC Payment → {a.name}{a.last4 ? ` (••${a.last4})` : ""}
+                        </option>
+                      ))}
+                      {linkableAccounts.length > 0 && linkableAccounts.map((a) => (
+                        <option key={a.id} value={`__link__${a.id}`}>
+                          ⇄ Link transfer → {a.name}{a.last4 ? ` (••${a.last4})` : ""}
+                        </option>
+                      ))}
+                      {(ccPaymentAccounts.length > 0 || linkableAccounts.length > 0) && (
+                        <option disabled>──────────</option>
                       )}
                       {allCategories.map((c) => (
                         <option key={c} value={c}>{c}</option>

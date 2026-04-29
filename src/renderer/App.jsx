@@ -274,16 +274,16 @@ export default function App() {
 
   // Link an existing imported transaction to a peer account as a transfer.
   // Modifies the existing txn in-place and creates a synthetic mirror on the peer account.
-  const linkTransfer = useCallback((txnId, peerAccountId) => {
+  const linkTransfer = useCallback((txnId, peerAccountId, category = "Transfer") => {
     const transferId = `xfer-${Date.now()}`;
     setAllTransactions((prev) => {
       const existing = prev.find((t) => t.id === txnId);
       if (!existing) return prev;
       const thisName = accountsRef.current.find((a) => a.id === existing.accountId)?.name ?? "account";
       const mirrorType = existing.type === "debit" ? "credit" : "debit";
-      const mirrorDesc = existing.type === "debit"
-        ? `Transfer from ${thisName}`
-        : `Transfer to ${thisName}`;
+      const mirrorDesc = category === "CC Payment"
+        ? (existing.type === "debit" ? `CC Payment from ${thisName}` : `CC Payment to ${thisName}`)
+        : (existing.type === "debit" ? `Transfer from ${thisName}` : `Transfer to ${thisName}`);
       const mirror = {
         id: `${transferId}-mirror`,
         fileId: null,
@@ -295,10 +295,10 @@ export default function App() {
         description: mirrorDesc,
         amount: existing.amount,
         type: mirrorType,
-        category: "Transfer",
+        category,
       };
       const updated = prev
-        .map((t) => t.id === txnId ? { ...t, transferId, transferPeer: peerAccountId, category: "Transfer" } : t)
+        .map((t) => t.id === txnId ? { ...t, transferId, transferPeer: peerAccountId, category } : t)
         .concat([mirror]);
       saveStored(updated, loadedFiles, budgets, openingBalance, accountsRef.current);
       return updated;

@@ -1057,6 +1057,13 @@
   margin-right: 8px;
 }
 
+.cc-payment-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #a07820;
+  margin-right: 8px;
+}
+
 .transfer-peer {
   display: inline-flex;
   align-items: center;
