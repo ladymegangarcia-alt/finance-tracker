@@ -554,15 +554,79 @@
 }
 
 .dashboard-donut {
-  flex: 1;
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.donut-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .dashboard-donut h3 {
   font-size: 0.9rem;
   font-weight: 600;
   color: #374151;
-  margin-bottom: 8px;
+  margin: 0;
+}
+
+.donut-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.donut-chart-wrap {
+  width: 210px;
+  flex-shrink: 0;
+}
+
+.donut-legend {
+  flex: 1;
+  min-width: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  overflow-y: auto;
+  max-height: 210px;
+}
+
+.donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #3d3d38;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+
+.donut-legend-item:hover { background: #f0f8f4; }
+
+.donut-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.donut-legend-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.donut-legend-value {
+  font-size: 0.78rem;
+  color: #6b6b62;
+  white-space: nowrap;
 }
 
 /* ── Summary cards ── */
@@ -1517,13 +1581,13 @@
   justify-content: space-between;
 }
 .btn-help {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  border: 1.5px solid rgba(255,255,255,0.35);
-  background: rgba(255,255,255,0.1);
-  color: #d1d5db;
-  font-size: 0.75rem;
+  border: 1.5px solid #b8d9cc;
+  background: #f0f8f4;
+  color: #1e5940;
+  font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -1532,7 +1596,13 @@
   flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
 }
-.btn-help:hover { background: rgba(255,255,255,0.22); color: #fff; }
+.btn-help:hover { background: #dff0e8; border-color: #2a7a58; }
+
+.btn-help-main {
+  position: absolute;
+  top: 32px;
+  right: 36px;
+}
 
 /* ── Help modal ───────────────────────────────────────────── */
 .modal-help {

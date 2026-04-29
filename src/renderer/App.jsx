@@ -515,7 +515,6 @@ export default function App() {
       <aside className="sidebar">
         <div className="sidebar-brand">
           <Logo variant="dark" size={36} />
-          <button className="btn-help" onClick={() => setShowHelp(true)} title="Help">?</button>
         </div>
 
         {/* Year filter */}
@@ -677,6 +676,8 @@ export default function App() {
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
       >
+        <button className="btn-help btn-help-main" onClick={() => setShowHelp(true)} title="Help">?</button>
+
         {error && (
           <div className="error-banner">
             ⚠ {error}

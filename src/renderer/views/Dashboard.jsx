@@ -181,7 +181,7 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
 
       {/* Top section: cards left, donut right */}
       <div className="dashboard-top">
-        <div className="cards-col">
+        {activeAccount && <div className="cards-col">
           <div className="card card-balance">
             <div className="card-label">
               {monthFilter != null ? `Opening Balance — ${MONTH_NAMES[monthFilter]}` : "Opening Balance"}
@@ -227,57 +227,87 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
             <div className="card-value">{fmt(currentBalance)}</div>
             <div className="card-sub">opening {currentBalance >= effectiveOpeningBalance ? "+" : ""}{fmt(currentBalance - effectiveOpeningBalance)}</div>
           </div>
-        </div>
+        </div>}
 
         {/* Donut charts */}
         <div className="dashboard-charts">
           <div className="dashboard-donut">
-            <h3>Spending by Category <span className="chart-click-hint">click a slice for details</span></h3>
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Pie
-                  data={byCategory}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="35%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={95}
-                  onClick={(entry) => setSelectedCategory({ name: entry.name, isIncome: false })}
-                  style={{ cursor: "pointer" }}
-                >
-                  {byCategory.map((entry) => (
-                    <Cell key={entry.name} fill={getColor(entry.name)} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v) => fmt(v)} />
-                <Legend layout="vertical" align="right" verticalAlign="middle" />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="donut-header">
+              <h3>Spending by Category</h3>
+              <span className="chart-click-hint">click a slice for details</span>
+            </div>
+            <div className="donut-body">
+              <div className="donut-chart-wrap">
+                <ResponsiveContainer width="100%" height={210}>
+                  <PieChart>
+                    <Pie
+                      data={byCategory}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={90}
+                      onClick={(entry) => setSelectedCategory({ name: entry.name, isIncome: false })}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {byCategory.map((entry) => (
+                        <Cell key={entry.name} fill={getColor(entry.name)} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v) => fmt(v)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <ul className="donut-legend">
+                {byCategory.map((entry) => (
+                  <li key={entry.name} className="donut-legend-item" onClick={() => setSelectedCategory({ name: entry.name, isIncome: false })}>
+                    <span className="donut-legend-dot" style={{ background: getColor(entry.name) }} />
+                    <span className="donut-legend-name">{entry.name}</span>
+                    <span className="donut-legend-value">{fmt(entry.value)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
           <div className="dashboard-donut">
-            <h3>Income by Category <span className="chart-click-hint">click a slice for details</span></h3>
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Pie
-                  data={byIncomeCategory}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="35%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={95}
-                  onClick={(entry) => setSelectedCategory({ name: entry.name, isIncome: true })}
-                  style={{ cursor: "pointer" }}
-                >
-                  {byIncomeCategory.map((entry) => (
-                    <Cell key={entry.name} fill={getColor(entry.name)} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v) => fmt(v)} />
-                <Legend layout="vertical" align="right" verticalAlign="middle" />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="donut-header">
+              <h3>Income by Category</h3>
+              <span className="chart-click-hint">click a slice for details</span>
+            </div>
+            <div className="donut-body">
+              <div className="donut-chart-wrap">
+                <ResponsiveContainer width="100%" height={210}>
+                  <PieChart>
+                    <Pie
+                      data={byIncomeCategory}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={90}
+                      onClick={(entry) => setSelectedCategory({ name: entry.name, isIncome: true })}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {byIncomeCategory.map((entry) => (
+                        <Cell key={entry.name} fill={getColor(entry.name)} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v) => fmt(v)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <ul className="donut-legend">
+                {byIncomeCategory.map((entry) => (
+                  <li key={entry.name} className="donut-legend-item" onClick={() => setSelectedCategory({ name: entry.name, isIncome: true })}>
+                    <span className="donut-legend-dot" style={{ background: getColor(entry.name) }} />
+                    <span className="donut-legend-name">{entry.name}</span>
+                    <span className="donut-legend-value">{fmt(entry.value)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </div>
