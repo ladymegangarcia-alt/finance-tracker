@@ -18,7 +18,7 @@ function vendorName(description) {
 
 const TRANSFER_RE = /transfer\s+(debit\s+to|credit\s+from)|online\s+transfer\s+(to|from)|overdraft\s+protection\s+xfer\s+(to|from)|online\s+pym[ty]|pymt\b|pymnt\b|autopay|auto[-\s]pay|payment\s*-?\s*thank|thank\s+you\s+for\s+(your\s+)?payment|bill\s+pay(ment)?|mobile\s+pay(ment)?|web\s+pay(ment)?|ach\s+(pay(ment)?|pmt\b)|wire\s+transfer|e-?payment|zelle|direct\s+pay(ment)?|credit\s+card\s+pay(ment)?/i;
 
-export default function Transactions({ transactions, bulkUpdateTransactions, customCategories = [], addCustomCategory, accounts = [], accountFilter = "all", addTransaction, deleteTransfer, linkTransfer, subcategories = {}, addSubcategory, addTxnTrigger = 0 }) {
+export default function Transactions({ transactions, bulkUpdateTransactions, customCategories = [], addCustomCategory, accounts = [], accountFilter = "all", addTransaction, deleteTransaction, deleteTransfer, linkTransfer, subcategories = {}, addSubcategory, addTxnTrigger = 0 }) {
   const [search,    setSearch]    = useState("");
   const [catFilter, setCatFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -666,7 +666,22 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
                   <td className={type === "credit" ? "credit-amt" : ""}>
                     {type === "credit" ? "+" : "-"}{fmt(Math.abs(t.amount))}
                   </td>
-                  <td />
+                  <td>
+                    <select
+                      className="action-select"
+                      defaultValue=""
+                      onChange={(e) => {
+                        const action = e.target.value;
+                        e.target.value = "";
+                        if (action === "reconcile") stageEdit(t.id, "reconciled", true);
+                        if (action === "delete") deleteTransaction(t.id);
+                      }}
+                    >
+                      <option value="">···</option>
+                      <option value="reconcile">✓ Reconcile</option>
+                      <option value="delete">✕ Delete</option>
+                    </select>
+                  </td>
                 </tr>
               );
             })}

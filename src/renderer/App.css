@@ -1588,27 +1588,53 @@
   justify-content: space-between;
 }
 .btn-help {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+  padding: 4px 14px;
+  border-radius: 20px;
   border: 1.5px solid #b8d9cc;
   background: #f0f8f4;
   color: #1e5940;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 600;
+  font-family: var(--sans, 'DM Sans', sans-serif);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
 }
 .btn-help:hover { background: #dff0e8; border-color: #2a7a58; }
 
 .btn-help-main {
   position: absolute;
-  top: 32px;
+  top: 28px;
   right: 36px;
+}
+
+/* ── Action dropdown (Reconcile / Delete) ── */
+.action-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 0.12s, color 0.12s;
+  text-align: center;
+}
+.action-select:hover {
+  background: #f0f4f8;
+  color: #1e5940;
+}
+.action-select:focus {
+  outline: none;
+  background: #e8f4ee;
+  color: #1e5940;
 }
 
 /* ── Help modal ───────────────────────────────────────────── */

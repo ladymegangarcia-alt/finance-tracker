@@ -318,6 +318,14 @@ export default function App() {
     });
   }, [loadedFiles, budgets, openingBalance]);
 
+  const deleteTransaction = useCallback((id) => {
+    setAllTransactions((prev) => {
+      const updated = prev.filter((t) => t.id !== id);
+      saveStored(updated, loadedFiles, budgets, openingBalance, accountsRef.current);
+      return updated;
+    });
+  }, [loadedFiles, budgets, openingBalance]);
+
   const addTransaction = useCallback((txn) => {
     const transaction = {
       ...txn,
@@ -535,24 +543,18 @@ export default function App() {
 
         {/* Account filter */}
         {accounts.length > 0 && (
-          <div className="sidebar-accounts">
-            <span className="sidebar-section-label">Accounts</span>
-            <button
-              className={`acct-filter-btn ${accountFilter === "all" ? "active" : ""}`}
-              onClick={() => setAccountFilter("all")}
+          <div className="sidebar-year">
+            <span className="sidebar-year-label">Account</span>
+            <select
+              className="year-select"
+              value={accountFilter}
+              onChange={(e) => setAccountFilter(e.target.value)}
             >
-              All accounts
-            </button>
-            {accounts.map((a) => (
-              <button
-                key={a.id}
-                className={`acct-filter-btn ${accountFilter === a.id ? "active" : ""}`}
-                onClick={() => setAccountFilter(a.id)}
-              >
-                <span className="acct-dot-sm" style={{ background: a.color }} />
-                {a.name}
-              </button>
-            ))}
+              <option value="all">All accounts</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -676,7 +678,7 @@ export default function App() {
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
       >
-        <button className="btn-help btn-help-main" onClick={() => setShowHelp(true)} title="Help">?</button>
+        <button className="btn-help btn-help-main" onClick={() => setShowHelp(true)} title="Help">Help</button>
 
         {error && (
           <div className="error-banner">
@@ -799,8 +801,8 @@ export default function App() {
             {tab === "trends"       && <Trends        expenses={expenses} income={income} />}
             {tab === "merchants"    && <TopMerchants  expenses={expenses} />}
             {tab === "budgets"      && <Budgets       expenses={expenses} budgets={budgets} setBudgets={setBudgets} />}
-            {tab === "transactions" && <Transactions  transactions={transactions} bulkUpdateTransactions={bulkUpdateTransactions} customCategories={customCategories} addCustomCategory={addCustomCategory} accounts={accounts} accountFilter={accountFilter} addTransaction={addTransaction} deleteTransfer={deleteTransfer} linkTransfer={linkTransfer} subcategories={subcategories} addSubcategory={addSubcategory} addTxnTrigger={addTxnTrigger} />}
-            {tab === "reconciled"   && <Reconciled    transactions={transactions} bulkUpdateTransactions={bulkUpdateTransactions} customCategories={customCategories} addCustomCategory={addCustomCategory} accounts={accounts} deleteTransfer={deleteTransfer} linkTransfer={linkTransfer} subcategories={subcategories} addSubcategory={addSubcategory} />}
+            {tab === "transactions" && <Transactions  transactions={transactions} bulkUpdateTransactions={bulkUpdateTransactions} customCategories={customCategories} addCustomCategory={addCustomCategory} accounts={accounts} accountFilter={accountFilter} addTransaction={addTransaction} deleteTransaction={deleteTransaction} deleteTransfer={deleteTransfer} linkTransfer={linkTransfer} subcategories={subcategories} addSubcategory={addSubcategory} addTxnTrigger={addTxnTrigger} />}
+            {tab === "reconciled"   && <Reconciled    transactions={transactions} bulkUpdateTransactions={bulkUpdateTransactions} customCategories={customCategories} addCustomCategory={addCustomCategory} accounts={accounts} deleteTransaction={deleteTransaction} deleteTransfer={deleteTransfer} linkTransfer={linkTransfer} subcategories={subcategories} addSubcategory={addSubcategory} />}
             {tab === "accounts"     && <Accounts      accounts={accounts} addAccount={addAccount} updateAccount={updateAccount} deleteAccount={deleteAccount} loadedFiles={loadedFiles} allTransactions={allTransactions} createTransfer={createTransfer} deleteTransfer={deleteTransfer} onAccountCreated={(id) => {
               setTab("transactions");
               setAccountFilter(id);
