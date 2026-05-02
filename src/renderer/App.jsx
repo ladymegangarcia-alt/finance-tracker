@@ -546,13 +546,13 @@ export default function App() {
           <div className="sidebar-year">
             <span className="sidebar-year-label">Account</span>
             <select
-              className="year-select"
+              className="year-select acct-select"
               value={accountFilter}
               onChange={(e) => setAccountFilter(e.target.value)}
             >
-              <option value="all">All accounts</option>
+              <option value="all">All</option>
               {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
+                <option key={a.id} value={a.id}>{a.name.length > 14 ? a.name.slice(0, 13) + "…" : a.name}</option>
               ))}
             </select>
           </div>
@@ -560,21 +560,10 @@ export default function App() {
 
         {/* Nav */}
         <nav className="sidebar-nav">
-          {/* Standalone items above Accounts group */}
-          {[{ id: "dashboard", label: "Dashboard" }].map((t) => (
-            <button
-              key={t.id}
-              className={`nav-item ${tab === t.id ? "active" : ""} ${!hasData ? "disabled" : ""}`}
-              onClick={() => hasData && setTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-
-          {/* Accounts group */}
+          {/* Analysis sub-group */}
           <div className="nav-group">
             <button className="nav-group-header" onClick={() => toggleGroup("accounts")}>
-              <span>Accounts</span>
+              <span>Analysis</span>
               <span className={`nav-group-chevron ${collapsedGroups["accounts"] ? "collapsed" : ""}`}>▾</span>
             </button>
             {!collapsedGroups["accounts"] && (
@@ -596,23 +585,6 @@ export default function App() {
               </>
             )}
           </div>
-
-          {/* Remaining standalone items */}
-          {[
-            { id: "trends",    label: "Trends" },
-            { id: "merchants", label: "Top Merchants" },
-            { id: "budgets",   label: "Budgets" },
-            { id: "accounts",  label: "Accounts" },
-            { id: "categories",label: "Categories" },
-          ].map((t) => (
-            <button
-              key={t.id}
-              className={`nav-item ${tab === t.id ? "active" : ""} ${!hasData && t.id !== "accounts" ? "disabled" : ""}`}
-              onClick={() => (hasData || t.id === "accounts") && setTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
         </nav>
 
         {/* Files group */}
@@ -678,8 +650,30 @@ export default function App() {
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
       >
-        <button className="btn-help btn-help-main" onClick={() => setShowHelp(true)} title="Help">Help</button>
+        {/* Top nav */}
+        <div className="top-nav">
+          <div className="top-nav-items">
+            {[
+              { id: "dashboard",  label: "Dashboard",     needsData: true  },
+              { id: "trends",     label: "Trends",        needsData: true  },
+              { id: "merchants",  label: "Top Merchants", needsData: true  },
+              { id: "budgets",    label: "Budgets",       needsData: true  },
+              { id: "accounts",   label: "Accounts",      needsData: false },
+              { id: "categories", label: "Categories",    needsData: true  },
+            ].map((t) => (
+              <button
+                key={t.id}
+                className={`top-nav-item ${tab === t.id ? "active" : ""} ${t.needsData && !hasData ? "disabled" : ""}`}
+                onClick={() => (!t.needsData || hasData) && setTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <button className="btn-help" onClick={() => setShowHelp(true)}>Help</button>
+        </div>
 
+        <div className="main-content">
         {error && (
           <div className="error-banner">
             ⚠ {error}
@@ -780,21 +774,6 @@ export default function App() {
           </div>
         ) : (
           <>
-            {/* YTD / account badge */}
-            <div className="ytd-bar">
-              <span className="ytd-label">
-                {activeAccount && (
-                  <span className="acct-badge" style={{ background: activeAccount.color }}>
-                    {activeAccount.name}
-                  </span>
-                )}
-                Showing <strong>{yearFilter} YTD</strong> · {transactions.length} transactions
-                {allTransactions.length !== transactions.length && (
-                  <span className="ytd-total"> ({allTransactions.length} total across all years/accounts)</span>
-                )}
-              </span>
-            </div>
-
             {tab === "dashboard"    && <Dashboard    transactions={transactions} expenses={expenses} income={income} openingBalance={effectiveOpeningBalance} setOpeningBalance={setOpeningBalance} activeAccount={activeAccount} accounts={accounts} allTransactions={allTransactions} customCategories={customCategories} />}
             {tab === "category"     && <ByCategory   expenses={expenses} />}
             {tab === "overtime"     && <OverTime      expenses={expenses} />}
@@ -815,6 +794,7 @@ export default function App() {
             {tab === "categories"   && <Categories    transactions={allTransactions} customCategories={customCategories} subcategories={subcategories} renameCategory={renameCategory} renameSubcategory={renameSubcategory} deleteSubcategory={deleteSubcategory} addSubcategory={addSubcategory} />}
           </>
         )}
+        </div>
       </main>
 
       {showHelp    && <HelpModal    onClose={() => setShowHelp(false)} />}

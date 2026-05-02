@@ -255,12 +255,68 @@
 .main {
   flex: 1;
   overflow-y: auto;
-  padding: 32px 36px;
+  padding: 0 0 32px;
   position: relative;
   transition: background 0.15s;
 }
 
+/* ── Top nav bar ── */
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 36px;
+  height: 50px;
+  background: #faf6ec;
+  border-bottom: 1px solid #e5e0d4;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.top-nav-items {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.top-nav-item {
+  background: none;
+  border: none;
+  color: #4a5568;
+  font-size: 0.84rem;
+  font-family: var(--sans, 'DM Sans', sans-serif);
+  font-weight: 500;
+  padding: 5px 13px;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.top-nav-item:hover {
+  background: #e8f4ee;
+  color: #1e5940;
+}
+
+.top-nav-item.active {
+  background: #1e5940;
+  color: #fff;
+  font-weight: 600;
+}
+
+.top-nav-item.disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
 .main.dragging { background: #f0f8f4; outline: 3px dashed #1e5940; outline-offset: -6px; }
+
+.main-content {
+  padding: 32px 36px;
+}
 
 /* ── Empty state ── */
 .empty-state {
@@ -268,7 +324,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  min-height: 60vh;
   gap: 16px;
   text-align: center;
 }
@@ -338,7 +394,7 @@
 }
 
 /* ── View ── */
-.view { max-width: 1000px; }
+.view { max-width: 1200px; }
 
 .view-header {
   display: flex;
@@ -533,6 +589,7 @@
 /* ── Dashboard top layout ── */
 .dashboard-top {
   display: flex;
+  flex-wrap: wrap;
   gap: 32px;
   align-items: flex-start;
   margin-bottom: 32px;
@@ -543,20 +600,26 @@
   flex-direction: column;
   gap: 12px;
   flex-shrink: 0;
+  min-width: 160px;
 }
 
 .dashboard-charts {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 32px;
+  align-items: start;
 }
 
 .dashboard-donut {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  border: 1px solid #b8d9cc;
+  border-radius: 12px;
+  padding: 16px 20px;
+  background: #fff;
 }
 
 .donut-header {
@@ -574,18 +637,20 @@
 
 .donut-body {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 16px;
 }
 
 .donut-chart-wrap {
   width: 210px;
+  max-width: 100%;
   flex-shrink: 0;
 }
 
 .donut-legend {
   flex: 1;
-  min-width: 0;
+  min-width: 180px;
   list-style: none;
   display: flex;
   flex-direction: column;
@@ -627,6 +692,20 @@
   font-size: 0.78rem;
   color: #6b6b62;
   white-space: nowrap;
+}
+
+/* ── Dashboard responsive breakpoints ── */
+@media (max-width: 680px) {
+  .cards-col {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .card {
+    flex: 1 1 140px;
+  }
+  .donut-chart-wrap {
+    width: 100%;
+  }
 }
 
 /* ── Summary cards ── */
@@ -1606,11 +1685,7 @@
 }
 .btn-help:hover { background: #dff0e8; border-color: #2a7a58; }
 
-.btn-help-main {
-  position: absolute;
-  top: 28px;
-  right: 36px;
-}
+.acct-select { max-width: 100px; }
 
 /* ── Action dropdown (Reconcile / Delete) ── */
 .action-select {
