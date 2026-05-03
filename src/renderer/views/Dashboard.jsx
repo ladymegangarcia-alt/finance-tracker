@@ -43,25 +43,53 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
   const totalExpenses  = useMemo(() => filteredExpenses.reduce((s, t) => s + t.amount, 0), [filteredExpenses]);
   const totalIncome    = useMemo(() => filteredIncome.reduce((s, t) => s + t.amount, 0), [filteredIncome]);
 
-  // When a month is selected, opening balance = year opening + all non-transfer transactions before that month
+  const isCCAccount = activeAccount?.type === "credit";
+
+  // CC payment transfers that reduce the CC balance (credit-type transfers on a CC account)
+  const ccPaymentsTotal = useMemo(() => {
+    if (!isCCAccount) return 0;
+    return filteredTransactions
+      .filter((t) => t.transferId && t.type === "credit")
+      .reduce((s, t) => s + t.amount, 0);
+  }, [isCCAccount, filteredTransactions]);
+
+  // When a month is selected, opening balance = year opening + activity before that month.
+  // For CC accounts: charges (credits) add to balance, payments (transfer credits) reduce it.
   const effectiveOpeningBalance = useMemo(() => {
     if (monthFilter == null) return openingBalance;
-    const preTxns = transactions.filter((t) => t.date && t.date.getMonth() < monthFilter && !t.transferId);
-    const preCredits = preTxns.filter((t) => t.type === "credit").reduce((s, t) => s + t.amount, 0);
-    const preDebits  = preTxns.filter((t) => t.type === "debit").reduce((s, t) => s + t.amount, 0);
+    const preTxns = transactions.filter((t) => t.date && t.date.getMonth() < monthFilter);
+    if (isCCAccount) {
+      const preCharges   = preTxns.filter((t) => !t.transferId).reduce((s, t) => s + t.amount, 0);
+      const prePayments  = preTxns.filter((t) => t.transferId && t.type === "credit").reduce((s, t) => s + t.amount, 0);
+      return openingBalance + preCharges - prePayments;
+    }
+    const preCredits = preTxns.filter((t) => !t.transferId && t.type === "credit").reduce((s, t) => s + t.amount, 0);
+    const preDebits  = preTxns.filter((t) => !t.transferId && t.type === "debit").reduce((s, t) => s + t.amount, 0);
     return openingBalance + preCredits - preDebits;
-  }, [monthFilter, openingBalance, transactions]);
+  }, [monthFilter, openingBalance, transactions, isCCAccount]);
 
-  const currentBalance = effectiveOpeningBalance + totalIncome - totalExpenses;
+  // CC: balance = opening + charges − payments  (charges increase what you owe)
+  // Bank: balance = opening + income − expenses
+  const currentBalance = isCCAccount
+    ? effectiveOpeningBalance + totalExpenses - ccPaymentsTotal
+    : effectiveOpeningBalance + totalIncome - totalExpenses;
 
   // Per-account balance summary (shown when "all accounts" selected)
   const accountSummaries = useMemo(() => {
     if (activeAccount || accounts.length === 0) return [];
     return accounts.map((a) => {
-      const txns   = allTransactions.filter((t) => t.accountId === a.id);
-      const debits = txns.filter((t) => t.type === "debit").reduce((s, t) => s + t.amount, 0);
-      const credits= txns.filter((t) => t.type === "credit").reduce((s, t) => s + t.amount, 0);
-      const balance= (a.openingBalance ?? 0) + credits - debits;
+      const txns = allTransactions.filter((t) => t.accountId === a.id);
+      let balance;
+      if (a.type === "credit") {
+        // CC: opening + all charges − CC payment transfers
+        const charges  = txns.filter((t) => !t.transferId).reduce((s, t) => s + t.amount, 0);
+        const payments = txns.filter((t) => t.transferId && t.type === "credit").reduce((s, t) => s + t.amount, 0);
+        balance = (a.openingBalance ?? 0) + charges - payments;
+      } else {
+        const debits  = txns.filter((t) => t.type === "debit").reduce((s, t) => s + t.amount, 0);
+        const credits = txns.filter((t) => t.type === "credit").reduce((s, t) => s + t.amount, 0);
+        balance = (a.openingBalance ?? 0) + credits - debits;
+      }
       return { ...a, balance };
     });
   }, [activeAccount, accounts, allTransactions]);
@@ -213,19 +241,19 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
             </div>
           </div>
           <div className="card card-expense">
-            <div className="card-label">Total Debits (Out)</div>
+            <div className="card-label">{isCCAccount ? "Total Charges" : "Total Debits (Out)"}</div>
             <div className="card-value">{fmt(totalExpenses)}</div>
             <div className="card-sub">{filteredExpenses.length} transactions</div>
           </div>
           <div className="card card-income">
-            <div className="card-label">Total Credits (In)</div>
-            <div className="card-value">{fmt(totalIncome)}</div>
-            <div className="card-sub">{filteredIncome.length} transactions</div>
+            <div className="card-label">{isCCAccount ? "Total Payments" : "Total Credits (In)"}</div>
+            <div className="card-value">{fmt(isCCAccount ? ccPaymentsTotal : totalIncome)}</div>
+            <div className="card-sub">{isCCAccount ? "applied to balance" : `${filteredIncome.length} transactions`}</div>
           </div>
           <div className={`card ${currentBalance >= 0 ? "card-positive" : "card-negative"}`}>
             <div className="card-label">Current Balance</div>
             <div className="card-value">{fmt(currentBalance)}</div>
-            <div className="card-sub">opening {currentBalance >= effectiveOpeningBalance ? "+" : ""}{fmt(currentBalance - effectiveOpeningBalance)}</div>
+            <div className="card-sub">{isCCAccount ? `charges ${currentBalance >= effectiveOpeningBalance ? "+" : ""}${fmt(currentBalance - effectiveOpeningBalance)}` : `opening ${currentBalance >= effectiveOpeningBalance ? "+" : ""}${fmt(currentBalance - effectiveOpeningBalance)}`}</div>
           </div>
         </div>}
 

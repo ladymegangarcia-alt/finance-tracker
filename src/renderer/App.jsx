@@ -354,9 +354,25 @@ export default function App() {
 
   const years = useMemo(() => availableYears(allTransactions), [allTransactions]);
 
-  // Exclude transfers from spending/income analysis
-  const expenses = useMemo(() => transactions.filter((t) => t.type === "debit"  && !t.transferId), [transactions]);
-  const income   = useMemo(() => transactions.filter((t) => t.type === "credit" && !t.transferId), [transactions]);
+  // Exclude transfers from spending/income analysis.
+  // Credit card accounts flip the logic: a CC "credit" from the CSV is a charge (expense),
+  // because the bank credits your liability account when you spend.
+  const expenses = useMemo(() =>
+    transactions.filter((t) => {
+      if (t.transferId) return false;
+      const acct = accounts.find((a) => a.id === t.accountId);
+      return acct?.type === "credit" ? t.type === "credit" : t.type === "debit";
+    }),
+    [transactions, accounts]
+  );
+  const income = useMemo(() =>
+    transactions.filter((t) => {
+      if (t.transferId) return false;
+      const acct = accounts.find((a) => a.id === t.accountId);
+      return acct?.type === "credit" ? t.type === "debit" : t.type === "credit";
+    }),
+    [transactions, accounts]
+  );
 
   // ── File import ──────────────────────────────────────────────────
   const loadFile = useCallback((file, accountId) => {
