@@ -563,10 +563,11 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
               const isCreditCardAccount = thisAccount?.type === "credit";
               const isPotentialTransfer = TRANSFER_RE.test(t.description) && accounts.length > 0;
 
-              // CC Payment: on a CC account credit txn, or bank account payment-pattern debit
+              // CC Payment: on a CC account, payments are "debit" type (negative in CSV = reduces balance).
+              // On a bank account, look for payment-pattern debits and offer to link to CC accounts.
               const ccPaymentAccounts = (() => {
-                if (isCreditCardAccount && t.type === "credit")
-                  return accounts.filter((a) => a.id !== t.accountId);
+                if (isCreditCardAccount && t.type === "debit" && isPotentialTransfer)
+                  return accounts.filter((a) => a.id !== t.accountId && a.type !== "credit");
                 if (!isCreditCardAccount && isPotentialTransfer)
                   return accounts.filter((a) => a.id !== t.accountId && a.type === "credit");
                 return [];
@@ -659,8 +660,8 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
                       value={type}
                       onChange={(e) => stageEdit(t.id, "type", e.target.value)}
                     >
-                      <option value="debit">Debit</option>
-                      <option value="credit">Credit</option>
+                      <option value="debit">{isCreditCardAccount ? "Payment" : "Debit"}</option>
+                      <option value="credit">{isCreditCardAccount ? "Charge" : "Credit"}</option>
                     </select>
                   </td>
                   <td className={type === "credit" ? "credit-amt" : ""}>

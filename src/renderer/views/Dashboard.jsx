@@ -45,11 +45,11 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
 
   const isCCAccount = activeAccount?.type === "credit";
 
-  // CC payment transfers that reduce the CC balance (credit-type transfers on a CC account)
+  // CC payments: all debits (unlinked payments/refunds) + credit transfers tagged as CC Payment (linked from bank side)
   const ccPaymentsTotal = useMemo(() => {
     if (!isCCAccount) return 0;
     return filteredTransactions
-      .filter((t) => t.transferId && t.type === "credit")
+      .filter((t) => t.type === "debit" || (t.transferId && t.category === "CC Payment"))
       .reduce((s, t) => s + t.amount, 0);
   }, [isCCAccount, filteredTransactions]);
 
@@ -59,8 +59,8 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
     if (monthFilter == null) return openingBalance;
     const preTxns = transactions.filter((t) => t.date && t.date.getMonth() < monthFilter);
     if (isCCAccount) {
-      const preCharges   = preTxns.filter((t) => !t.transferId).reduce((s, t) => s + t.amount, 0);
-      const prePayments  = preTxns.filter((t) => t.transferId && t.type === "credit").reduce((s, t) => s + t.amount, 0);
+      const preCharges  = preTxns.filter((t) => !t.transferId && t.type === "credit").reduce((s, t) => s + t.amount, 0);
+      const prePayments = preTxns.filter((t) => t.type === "debit" || (t.transferId && t.category === "CC Payment")).reduce((s, t) => s + t.amount, 0);
       return openingBalance + preCharges - prePayments;
     }
     const preCredits = preTxns.filter((t) => !t.transferId && t.type === "credit").reduce((s, t) => s + t.amount, 0);
@@ -81,9 +81,9 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
       const txns = allTransactions.filter((t) => t.accountId === a.id);
       let balance;
       if (a.type === "credit") {
-        // CC: opening + all charges − CC payment transfers
-        const charges  = txns.filter((t) => !t.transferId).reduce((s, t) => s + t.amount, 0);
-        const payments = txns.filter((t) => t.transferId && t.type === "credit").reduce((s, t) => s + t.amount, 0);
+        // CC: opening + charges (non-transfer credits) − all payments (debits + CC Payment transfers)
+        const charges  = txns.filter((t) => !t.transferId && t.type === "credit").reduce((s, t) => s + t.amount, 0);
+        const payments = txns.filter((t) => t.type === "debit" || (t.transferId && t.category === "CC Payment")).reduce((s, t) => s + t.amount, 0);
         balance = (a.openingBalance ?? 0) + charges - payments;
       } else {
         const debits  = txns.filter((t) => t.type === "debit").reduce((s, t) => s + t.amount, 0);
@@ -298,6 +298,7 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
               </ul>
             </div>
           </div>
+          {!isCCAccount && (
           <div className="dashboard-donut">
             <div className="donut-header">
               <h3>Income by Category</h3>
@@ -337,6 +338,7 @@ export default function Dashboard({ transactions, expenses, income, openingBalan
               </ul>
             </div>
           </div>
+          )}
         </div>
       </div>
 

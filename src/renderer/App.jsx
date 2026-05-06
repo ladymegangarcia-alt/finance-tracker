@@ -280,7 +280,10 @@ export default function App() {
       const existing = prev.find((t) => t.id === txnId);
       if (!existing) return prev;
       const thisName = accountsRef.current.find((a) => a.id === existing.accountId)?.name ?? "account";
-      const mirrorType = existing.type === "debit" ? "credit" : "debit";
+      const thisAcct = accountsRef.current.find((a) => a.id === existing.accountId);
+      // CC payment initiated from the CC account side: both sides are "debit" (both balances decrease)
+      const isCCPaymentFromCC = category === "CC Payment" && thisAcct?.type === "credit" && existing.type === "debit";
+      const mirrorType = isCCPaymentFromCC ? "debit" : (existing.type === "debit" ? "credit" : "debit");
       const mirrorDesc = category === "CC Payment"
         ? (existing.type === "debit" ? `CC Payment from ${thisName}` : `CC Payment to ${thisName}`)
         : (existing.type === "debit" ? `Transfer from ${thisName}` : `Transfer to ${thisName}`);
