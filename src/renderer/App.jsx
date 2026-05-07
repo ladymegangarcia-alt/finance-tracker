@@ -97,6 +97,10 @@ export default function App() {
   const [importNewName,   setImportNewName]   = useState("");
   const [importNewType,   setImportNewType]   = useState("checking");
 
+  // Duplicate review state — set when imported file overlaps existing transactions
+  const [pendingDedup, setPendingDedup] = useState(null);
+  // shape: { tagged, newFile, overlapWarning, duplicates: [{newTxn, existingTxn}], skipIds: Set<string> }
+
   const fileInputRef   = useRef(null);
   const importDataRef  = useRef(null);
 
@@ -397,14 +401,13 @@ export default function App() {
         const newRange = dateRangeOf(tagged);
         let overlapWarning = null;
         if (newRange) {
-          // Only check overlap within the same account
           const sameAcctFiles = loadedFiles.filter((lf) => lf.accountId === accountId);
           for (const lf of sameAcctFiles) {
             if (!lf.minDate || !lf.maxDate) continue;
             const existMin = new Date(lf.minDate);
             const existMax = new Date(lf.maxDate);
             if (newRange.min <= existMax && newRange.max >= existMin) {
-              overlapWarning = `Date range overlaps with "${lf.name}" (${lf.dateRange}). Transactions merged — remove the old file if it's a duplicate.`;
+              overlapWarning = `Date range overlaps with "${lf.name}" (${lf.dateRange}).`;
               break;
             }
           }
@@ -421,17 +424,45 @@ export default function App() {
           maxDate: newRange?.max?.toISOString() ?? null,
         };
 
-        const updatedTxns  = [...allTransactions, ...tagged];
-        const updatedFiles = [...loadedFiles, newFile];
+        // Find potential duplicates: same account, same dateStr, same amount, same type
+        const existing = allTransactions.filter((t) => t.accountId === accountId && !t.transferId);
+        const duplicates = [];
+        const usedExistingIds = new Set();
+        for (const nt of tagged) {
+          const match = existing.find((et) =>
+            !usedExistingIds.has(et.id) &&
+            et.dateStr === nt.dateStr &&
+            Math.abs(et.amount - nt.amount) < 0.01 &&
+            et.type === nt.type
+          );
+          if (match) {
+            duplicates.push({ newTxn: nt, existingTxn: match });
+            usedExistingIds.add(match.id);
+          }
+        }
 
-        setAllTransactions(updatedTxns);
-        setLoadedFiles(updatedFiles);
-        saveStored(updatedTxns, updatedFiles, budgets, openingBalance, accountsRef.current);
-        setError(null);
-        setTab("dashboard");
-        if (accountId) setAccountFilter(accountId);
-        if (newRange?.max) setYearFilter(newRange.max.getFullYear());
-        if (overlapWarning) setWarning(overlapWarning);
+        if (duplicates.length > 0) {
+          // Pause import — let user review duplicates first
+          setPendingDedup({
+            tagged,
+            newFile,
+            overlapWarning,
+            duplicates,
+            skipIds: new Set(duplicates.map((d) => d.newTxn.id)),
+          });
+        } else {
+          // No duplicates — commit immediately
+          const updatedTxns  = [...allTransactions, ...tagged];
+          const updatedFiles = [...loadedFiles, newFile];
+          setAllTransactions(updatedTxns);
+          setLoadedFiles(updatedFiles);
+          saveStored(updatedTxns, updatedFiles, budgets, openingBalance, accountsRef.current);
+          setError(null);
+          setTab("dashboard");
+          if (accountId) setAccountFilter(accountId);
+          if (newRange?.max) setYearFilter(newRange.max.getFullYear());
+          if (overlapWarning) setWarning(overlapWarning);
+        }
       } catch (err) {
         setError(err.message);
       }
@@ -473,6 +504,37 @@ export default function App() {
     setImportAccountId(null);
     setImportNewName("");
     setImportNewType("checking");
+  }
+
+  function toggleDedupSkip(txnId) {
+    setPendingDedup((prev) => {
+      const next = new Set(prev.skipIds);
+      next.has(txnId) ? next.delete(txnId) : next.add(txnId);
+      return { ...prev, skipIds: next };
+    });
+  }
+
+  function handleConfirmDedup() {
+    if (!pendingDedup) return;
+    const { tagged, newFile, skipIds, overlapWarning } = pendingDedup;
+    const toImport = tagged.filter((t) => !skipIds.has(t.id));
+    const updatedTxns  = [...allTransactions, ...toImport];
+    const updatedFile  = { ...newFile, count: toImport.length };
+    const updatedFiles = toImport.length > 0 ? [...loadedFiles, updatedFile] : loadedFiles;
+    setAllTransactions(updatedTxns);
+    setLoadedFiles(updatedFiles);
+    saveStored(updatedTxns, updatedFiles, budgets, openingBalance, accountsRef.current);
+    setError(null);
+    setPendingDedup(null);
+    setTab("dashboard");
+    if (newFile.accountId) setAccountFilter(newFile.accountId);
+    const firstDate = toImport[0]?.date ?? tagged[0]?.date;
+    if (firstDate) setYearFilter(firstDate.getFullYear());
+    if (overlapWarning && toImport.length > 0) setWarning(overlapWarning);
+  }
+
+  function handleCancelDedup() {
+    setPendingDedup(null);
   }
 
   const handleDrop = useCallback((e) => {
@@ -776,6 +838,60 @@ export default function App() {
           </div>
         )}
 
+        {/* ── Duplicate review modal ── */}
+        {pendingDedup && (() => {
+          const { tagged, newFile, duplicates, skipIds } = pendingDedup;
+          const importCount = tagged.length - skipIds.size;
+          return (
+            <div className="modal-overlay">
+              <div className="modal modal-dedup" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-title">Potential Duplicate Transactions</div>
+                <p className="modal-subtitle">
+                  Found <strong>{duplicates.length}</strong> transaction{duplicates.length !== 1 ? "s" : ""} in <em>{newFile.name}</em> that may already be imported.
+                  Checked rows will be skipped — uncheck any you want to import anyway.
+                </p>
+                <div className="dedup-list">
+                  {duplicates.map(({ newTxn, existingTxn }) => {
+                    const skipping = skipIds.has(newTxn.id);
+                    return (
+                      <label key={newTxn.id} className={`dedup-row ${skipping ? "dedup-skipping" : ""}`}>
+                        <input type="checkbox" checked={skipping} onChange={() => toggleDedupSkip(newTxn.id)} />
+                        <div className="dedup-txns">
+                          <div className="dedup-existing">
+                            <span className="dedup-badge">Existing</span>
+                            <span className="dedup-date">{existingTxn.dateStr}</span>
+                            <span className="dedup-desc">{existingTxn.description}</span>
+                            <span className={`dedup-amt ${existingTxn.type}`}>
+                              {existingTxn.type === "credit" ? "+" : "−"}${existingTxn.amount.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="dedup-new">
+                            <span className="dedup-badge dedup-badge-new">New</span>
+                            <span className="dedup-date">{newTxn.dateStr}</span>
+                            <span className="dedup-desc">{newTxn.description}</span>
+                            <span className={`dedup-amt ${newTxn.type}`}>
+                              {newTxn.type === "credit" ? "+" : "−"}${newTxn.amount.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="dedup-summary">
+                  Importing <strong>{importCount}</strong> of {tagged.length} transaction{tagged.length !== 1 ? "s" : ""}
+                  {skipIds.size > 0 && ` · skipping ${skipIds.size} duplicate${skipIds.size !== 1 ? "s" : ""}`}
+                </div>
+                <div className="modal-actions">
+                  <button className="btn-sm" onClick={handleCancelDedup}>Cancel</button>
+                  <button className="btn-sm btn-save" onClick={handleConfirmDedup}>
+                    Import {importCount} transaction{importCount !== 1 ? "s" : ""}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {!hasData && tab !== "accounts" ? (
           <div className="empty-state">
