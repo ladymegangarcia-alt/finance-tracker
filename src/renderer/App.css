@@ -1855,6 +1855,76 @@
   gap: 8px;
 }
 
+/* ── Spend Analysis ── */
+.spend-month-filter {
+  margin-bottom: 24px;
+}
+
+.spend-month-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e5940;
+  margin-bottom: 8px;
+}
+
+.month-slider {
+  width: 100%;
+  accent-color: #1e5940;
+  cursor: pointer;
+  height: 4px;
+}
+
+.spend-month-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: #9ca3af;
+  user-select: none;
+}
+
+.spend-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.spend-cat-tile {
+  background: #fff;
+  border: 1px solid #e5e0d4;
+  border-top: 4px solid #9ca3af;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spend-cat-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spend-cat-total {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111;
+  margin-top: 4px;
+}
+
+.spend-cat-count {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
 /* ── Duplicate review modal ── */
 .modal-dedup {
   width: min(680px, 95vw);

@@ -737,7 +737,7 @@ export default function App() {
             {[
               { id: "dashboard",  label: "Dashboard",     needsData: true  },
               { id: "trends",     label: "Trends",        needsData: true  },
-              { id: "merchants",  label: "Top Merchants", needsData: true  },
+              { id: "merchants",  label: "Spend Analysis", needsData: true  },
               { id: "budgets",    label: "Budgets",       needsData: true  },
               { id: "accounts",   label: "Accounts",      needsData: false },
               { id: "categories", label: "Categories",    needsData: true  },

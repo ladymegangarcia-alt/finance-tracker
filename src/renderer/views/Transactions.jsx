@@ -5,17 +5,6 @@ function fmt(n) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
-// Extract vendor key: first significant word (for grouping) + second if available (for display)
-function vendorKey(description) {
-  const words = description.toUpperCase().replace(/[^A-Z\s]/g, " ").split(/\s+/).filter(w => w.length >= 3);
-  return words[0] || "";
-}
-
-function vendorName(description) {
-  const words = description.toUpperCase().replace(/[^A-Z\s]/g, " ").split(/\s+/).filter(w => w.length >= 3);
-  return words.slice(0, 2).join(" ") || "";
-}
-
 const TRANSFER_RE = /transfer\s+(debit\s+to|credit\s+from)|online\s+transfer\s+(to|from)|overdraft\s+protection\s+xfer\s+(to|from)|online\s+pym[ty]|pymt\b|pymnt\b|autopay|auto[-\s]pay|payment\s*-?\s*thank|thank\s+you\s+for\s+(your\s+)?payment|bill\s+pay(ment)?|mobile\s+pay(ment)?|web\s+pay(ment)?|ach\s+(pay(ment)?|pmt\b)|wire\s+transfer|e-?payment|zelle|direct\s+pay(ment)?|credit\s+card\s+pay(ment)?/i;
 
 export default function Transactions({ transactions, bulkUpdateTransactions, customCategories = [], addCustomCategory, accounts = [], accountFilter = "all", addTransaction, deleteTransaction, deleteTransfer, linkTransfer, subcategories = {}, addSubcategory, addTxnTrigger = 0 }) {
@@ -193,27 +182,6 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
       ...prev,
       [transactionId]: { ...prev[transactionId], category: value, reconciled: true },
     }));
-
-    // Find similar transactions from the same vendor with a different category
-    const changed = transactions.find((t) => t.id === transactionId);
-    if (!changed) return;
-    const key = vendorKey(changed.description);
-    if (!key) return;
-
-    const matches = transactions.filter((t) => {
-      if (t.id === transactionId) return false;
-      const currentCat = pendingEdits[t.id]?.category ?? t.category;
-      return vendorKey(t.description) === key && currentCat !== value;
-    });
-
-    if (matches.length > 0) {
-      setSuggestion({
-        targetCategory: value,
-        vendor: vendorName(changed.description),
-        matches,
-        checked: new Set(matches.map((t) => t.id)),
-      });
-    }
   }
 
   function toggleSuggestionCheck(id) {
@@ -357,7 +325,7 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
               </select>
             </div>
             <div>
-              <label>Subcategory</label>
+              <label>Vendor</label>
               <input className="modal-input" type="text" placeholder="Optional" value={newTxnSubcategory} onChange={(e) => setNewTxnSubcategory(e.target.value)} />
             </div>
           </div>
@@ -418,14 +386,11 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
       {suggestion && (
         <div className="modal-overlay" onClick={() => setSuggestion(null)}>
           <div className="modal modal-suggest" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">Apply to similar transactions?</div>
+            <div className="modal-title">Apply vendor to similar transactions?</div>
             <p className="suggest-subtitle">
-              Found <strong>{suggestion.matches.length}</strong> other transactions from{" "}
-              <strong>{suggestion.vendor}</strong>. Select which ones to tag as{" "}
-              <strong>
-                {suggestion.targetCategory}
-                {suggestion.targetSubcategory ? ` › ${suggestion.targetSubcategory}` : ""}
-              </strong>:
+              Found <strong>{suggestion.matches.length}</strong> other transaction{suggestion.matches.length !== 1 ? "s" : ""} with{" "}
+              <strong>"{suggestion.vendor}"</strong> in the description. Tag them as vendor{" "}
+              <strong>{suggestion.targetSubcategory}</strong>?
             </p>
             <div className="suggest-list">
               <label className="suggest-check-all">
@@ -451,13 +416,11 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
                   <span className="suggest-date">{t.date ? t.date.toLocaleDateString() : t.dateStr}</span>
                   <span className="suggest-desc">{t.description}</span>
                   <span className="suggest-from">
-                    {pendingEdits[t.id]?.category ?? t.category}
-                    {(pendingEdits[t.id]?.subcategory ?? t.subcategory) ? ` › ${pendingEdits[t.id]?.subcategory ?? t.subcategory}` : ""}
+                    {pendingEdits[t.id]?.subcategory ?? t.subcategory ?? "—"}
                   </span>
                   <span className="suggest-arrow">→</span>
                   <span className="suggest-to">
-                    {suggestion.targetCategory}
-                    {suggestion.targetSubcategory ? ` › ${suggestion.targetSubcategory}` : ""}
+                    {suggestion.targetSubcategory}
                   </span>
                 </label>
               ))}
@@ -614,13 +577,13 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
                       <option disabled>──────────</option>
                       <option value="__new__">+ Add new category…</option>
                     </select>
-                    {/* Subcategory selector */}
+                    {/* Vendor selector */}
                     {addingSubcatId === t.id ? (
                       <div className="subcat-new-row">
                         <input
                           className="subcat-input"
                           autoFocus
-                          placeholder="Subcategory name…"
+                          placeholder="Vendor name…"
                           value={newSubcatText}
                           onChange={(e) => setNewSubcatText(e.target.value)}
                           onKeyDown={(e) => {
@@ -645,12 +608,12 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
                           }
                         }}
                       >
-                        <option value="">— subcategory —</option>
+                        <option value="">— vendor —</option>
                         {(subcatsByCategory[cat] || []).map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
                         <option disabled>──────────</option>
-                        <option value="__new_subcat__">+ Add new…</option>
+                        <option value="__new_subcat__">+ Add vendor…</option>
                       </select>
                     )}
                   </td>

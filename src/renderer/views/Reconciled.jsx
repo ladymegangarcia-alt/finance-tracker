@@ -5,17 +5,6 @@ function fmt(n) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
-// Extract vendor key: first significant word (for grouping) + second if available (for display)
-function vendorKey(description) {
-  const words = description.toUpperCase().replace(/[^A-Z\s]/g, " ").split(/\s+/).filter(w => w.length >= 3);
-  return words[0] || "";
-}
-
-function vendorName(description) {
-  const words = description.toUpperCase().replace(/[^A-Z\s]/g, " ").split(/\s+/).filter(w => w.length >= 3);
-  return words.slice(0, 2).join(" ") || "";
-}
-
 const TRANSFER_RE = /transfer\s+(debit\s+to|credit\s+from)|online\s+transfer\s+(to|from)|overdraft\s+protection\s+xfer\s+(to|from)|online\s+pym[ty]|pymt\b|pymnt\b|autopay|auto[-\s]pay|payment\s*-?\s*thank|thank\s+you\s+for\s+(your\s+)?payment|bill\s+pay(ment)?|mobile\s+pay(ment)?|web\s+pay(ment)?|ach\s+(pay(ment)?|pmt\b)|wire\s+transfer|e-?payment|zelle|direct\s+pay(ment)?|credit\s+card\s+pay(ment)?/i;
 
 export default function Reconciled({ transactions, bulkUpdateTransactions, customCategories = [], addCustomCategory, accounts = [], deleteTransaction, deleteTransfer, linkTransfer, subcategories = {}, addSubcategory }) {
