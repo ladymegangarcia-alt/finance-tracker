@@ -7,7 +7,7 @@ function fmt(n) {
 
 const TRANSFER_RE = /transfer\s+(debit\s+to|credit\s+from)|online\s+transfer\s+(to|from)|overdraft\s+protection\s+xfer\s+(to|from)|online\s+pym[ty]|pymt\b|pymnt\b|autopay|auto[-\s]pay|payment\s*-?\s*thank|thank\s+you\s+for\s+(your\s+)?payment|bill\s+pay(ment)?|mobile\s+pay(ment)?|web\s+pay(ment)?|ach\s+(pay(ment)?|pmt\b)|wire\s+transfer|e-?payment|zelle|direct\s+pay(ment)?|credit\s+card\s+pay(ment)?/i;
 
-export default function Transactions({ transactions, bulkUpdateTransactions, customCategories = [], addCustomCategory, accounts = [], accountFilter = "all", addTransaction, deleteTransaction, deleteTransfer, linkTransfer, subcategories = {}, addSubcategory, addTxnTrigger = 0 }) {
+export default function Transactions({ transactions, bulkUpdateTransactions, customCategories = [], addCustomCategory, accounts = [], accountFilter = "all", addTransaction, deleteTransaction, deleteTransfer, linkTransfer, subcategories = {}, addSubcategory, addTxnTrigger = 0, onPlaidOverride = null }) {
   const [search,    setSearch]    = useState("");
   const [catFilter, setCatFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -137,8 +137,8 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
     return rows;
   }, [transactions, search, catFilter, typeFilter, sort]);
 
-  const totalDebits  = useMemo(() => filtered.filter((t) => t.type === "debit").reduce((s, t) => s + Math.abs(t.amount), 0), [filtered]);
-  const totalCredits = useMemo(() => filtered.filter((t) => t.type === "credit").reduce((s, t) => s + Math.abs(t.amount), 0), [filtered]);
+  const totalDebits  = useMemo(() => filtered.filter((t) => !t.pending && t.type === "debit").reduce((s, t) => s + Math.abs(t.amount), 0), [filtered]);
+  const totalCredits = useMemo(() => filtered.filter((t) => !t.pending && t.type === "credit").reduce((s, t) => s + Math.abs(t.amount), 0), [filtered]);
 
   const pendingCount = Object.keys(pendingEdits).length;
 
@@ -239,7 +239,23 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
 
   function handleSave() {
     if (!pendingCount) return;
-    bulkUpdateTransactions(pendingEdits);
+    const localEdits = {};
+    for (const [id, edit] of Object.entries(pendingEdits)) {
+      const t = transactions.find((tx) => tx.id === id);
+      if (t?.isPlaid && t.plaidId) {
+        if (onPlaidOverride) {
+          const merged = { ...t, ...edit };
+          onPlaidOverride(t.plaidId, {
+            category:    merged.category ?? null,
+            subcategory: merged.subcategory ?? null,
+            reconciled:  merged.reconciled ?? false,
+          });
+        }
+      } else {
+        localEdits[id] = edit;
+      }
+    }
+    if (Object.keys(localEdits).length) bulkUpdateTransactions(localEdits);
     setPendingEdits({});
     setSaved(true);
     setTimeout(() => setSaved(false), 6000);
@@ -541,17 +557,23 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
                 : [];
 
               return (
-                <tr key={t.id} className={`${type === "credit" ? "row-credit" : ""} ${hasEdit ? "row-edited" : ""}`}>
+                <tr key={t.id} className={`${type === "credit" ? "row-credit" : ""} ${hasEdit ? "row-edited" : ""} ${t.pending ? "row-pending" : ""}`}>
                   <td>
                     <input
                       type="checkbox"
                       checked={resolved(t, "reconciled") ?? false}
                       onChange={(e) => stageEdit(t.id, "reconciled", e.target.checked)}
-                      title="Mark as reconciled (will move to Reconciled view)"
+                      disabled={!!(t.isPlaid && t.pending)}
+                      title={t.isPlaid && t.pending ? "Pending transactions cannot be reviewed" : "Mark as reviewed (will move to Reviewed list)"}
                     />
                   </td>
                   <td className="mono">{t.date ? t.date.toLocaleDateString() : t.dateStr}</td>
-                  <td>{t.description}{hasEdit && <span className="edit-dot" title="Unsaved change" />}</td>
+                  <td>
+                    {t.isPlaid && <span className="plaid-icon" title="From Plaid">🏦</span>}
+                    {t.description}
+                    {t.pending && <span className="pending-badge">Pending</span>}
+                    {hasEdit && <span className="edit-dot" title="Unsaved change" />}
+                  </td>
                   <td>
                     <select
                       className="inline-select"
@@ -631,20 +653,22 @@ export default function Transactions({ transactions, bulkUpdateTransactions, cus
                     {type === "credit" ? "+" : "-"}{fmt(Math.abs(t.amount))}
                   </td>
                   <td>
-                    <select
-                      className="action-select"
-                      defaultValue=""
-                      onChange={(e) => {
-                        const action = e.target.value;
-                        e.target.value = "";
-                        if (action === "reconcile") stageEdit(t.id, "reconciled", true);
-                        if (action === "delete") deleteTransaction(t.id);
-                      }}
-                    >
-                      <option value="">···</option>
-                      <option value="reconcile">✓ Reconcile</option>
-                      <option value="delete">✕ Delete</option>
-                    </select>
+                    {!t.isPlaid && (
+                      <select
+                        className="action-select"
+                        defaultValue=""
+                        onChange={(e) => {
+                          const action = e.target.value;
+                          e.target.value = "";
+                          if (action === "reconcile") stageEdit(t.id, "reconciled", true);
+                          if (action === "delete") deleteTransaction(t.id);
+                        }}
+                      >
+                        <option value="">···</option>
+                        <option value="reconcile">✓ Review</option>
+                        <option value="delete">✕ Delete</option>
+                      </select>
+                    )}
                   </td>
                 </tr>
               );

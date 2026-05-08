@@ -10,4 +10,9 @@ export default defineConfig({
     emptyOutDir: true,
   },
   base: "./",
+  server: {
+    proxy: {
+      "/api": "http://localhost:3001",
+    },
+  },
 });

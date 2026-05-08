@@ -38,3 +38,10 @@ out/
 *.rpm
 *.snap
 *.appimage
+
+# Plaid server data
+server/data/
+*.db
+
+# Claude Code local tooling
+.claude/

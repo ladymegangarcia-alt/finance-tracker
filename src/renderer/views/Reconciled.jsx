@@ -7,7 +7,7 @@ function fmt(n) {
 
 const TRANSFER_RE = /transfer\s+(debit\s+to|credit\s+from)|online\s+transfer\s+(to|from)|overdraft\s+protection\s+xfer\s+(to|from)|online\s+pym[ty]|pymt\b|pymnt\b|autopay|auto[-\s]pay|payment\s*-?\s*thank|thank\s+you\s+for\s+(your\s+)?payment|bill\s+pay(ment)?|mobile\s+pay(ment)?|web\s+pay(ment)?|ach\s+(pay(ment)?|pmt\b)|wire\s+transfer|e-?payment|zelle|direct\s+pay(ment)?|credit\s+card\s+pay(ment)?/i;
 
-export default function Reconciled({ transactions, bulkUpdateTransactions, customCategories = [], addCustomCategory, accounts = [], deleteTransaction, deleteTransfer, linkTransfer, subcategories = {}, addSubcategory }) {
+export default function Reconciled({ transactions, bulkUpdateTransactions, customCategories = [], addCustomCategory, accounts = [], deleteTransaction, deleteTransfer, linkTransfer, subcategories = {}, addSubcategory, onPlaidOverride = null }) {
   const [search,    setSearch]    = useState("");
   const [catFilter, setCatFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -125,7 +125,23 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
 
   function handleSave() {
     if (!pendingCount) return;
-    bulkUpdateTransactions(pendingEdits);
+    const localEdits = {};
+    for (const [id, edit] of Object.entries(pendingEdits)) {
+      const t = transactions.find((tx) => tx.id === id);
+      if (t?.isPlaid && t.plaidId) {
+        if (onPlaidOverride) {
+          const merged = { ...t, ...edit };
+          onPlaidOverride(t.plaidId, {
+            category:    merged.category ?? null,
+            subcategory: merged.subcategory ?? null,
+            reconciled:  merged.reconciled ?? false,
+          });
+        }
+      } else {
+        localEdits[id] = edit;
+      }
+    }
+    if (Object.keys(localEdits).length) bulkUpdateTransactions(localEdits);
     setPendingEdits({});
     setSaved(true);
     setTimeout(() => setSaved(false), 6000);
@@ -142,7 +158,7 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
   return (
     <div className="view">
       <div className="view-header">
-        <h2>Reconciled Transactions</h2>
+        <h2>Reviewed Transactions</h2>
         <div className="edit-actions">
           {saved && <span className="edit-saved">✓ Changes saved</span>}
           {pendingCount > 0 && (
@@ -250,7 +266,7 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
                 const isCCPayment = t.category === "CC Payment";
                 return (
                   <tr key={t.id} className="row-transfer">
-                    <td><input type="checkbox" disabled checked title={isCCPayment ? "CC payments are automatically reconciled" : "Transfers are automatically reconciled"} /></td>
+                    <td><input type="checkbox" disabled checked title={isCCPayment ? "CC payments are automatically reviewed" : "Transfers are automatically reviewed"} /></td>
                     <td className="mono">{t.date ? t.date.toLocaleDateString() : t.dateStr}</td>
                     <td>
                       <span className={isCCPayment ? "cc-payment-label" : "transfer-label"}>
@@ -307,11 +323,15 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
                       type="checkbox"
                       checked={resolved(t, "reconciled") ?? false}
                       onChange={(e) => stageEdit(t.id, "reconciled", e.target.checked)}
-                      title="Uncheck to move back to Transactions view"
+                      title="Uncheck to move back to Transactions"
                     />
                   </td>
                   <td className="mono">{t.date ? t.date.toLocaleDateString() : t.dateStr}</td>
-                  <td>{t.description}{hasEdit && <span className="edit-dot" title="Unsaved change" />}</td>
+                  <td>
+                    {t.isPlaid && <span className="plaid-icon" title="From Plaid">🏦</span>}
+                    {t.description}
+                    {hasEdit && <span className="edit-dot" title="Unsaved change" />}
+                  </td>
                   <td>
                     <select
                       className="inline-select"
@@ -358,13 +378,13 @@ export default function Reconciled({ transactions, bulkUpdateTransactions, custo
                       onChange={(e) => {
                         const action = e.target.value;
                         e.target.value = "";
-                        if (action === "unreconcile") stageEdit(t.id, "reconciled", false);
+                        if (action === "unreview") stageEdit(t.id, "reconciled", false);
                         if (action === "delete") deleteTransaction(t.id);
                       }}
                     >
                       <option value="">···</option>
-                      <option value="unreconcile">↩ Unreconcile</option>
-                      <option value="delete">✕ Delete</option>
+                      <option value="unreview">↩ Unreview</option>
+                      {!t.isPlaid && <option value="delete">✕ Delete</option>}
                     </select>
                   </td>
                 </tr>

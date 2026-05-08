@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import Logo from '../components/Logo';
 import { parseStatementCSV } from "./parseCSV.js";
 import Dashboard from "./views/Dashboard.jsx";
@@ -9,10 +9,10 @@ import Budgets from "./views/Budgets.jsx";
 import Transactions from "./views/Transactions.jsx";
 import Reconciled from "./views/Reconciled.jsx";
 import Accounts from "./views/Accounts.jsx";
-import Trends from "./views/Trends.jsx";
 import Categories from "./views/Categories.jsx";
 import HelpModal from "./views/HelpModal.jsx";
 import WelcomeOverlay from "./views/WelcomeOverlay.jsx";
+import PlaidConnect from "./views/PlaidConnect.jsx";
 import "./App.css";
 
 
@@ -61,6 +61,26 @@ function availableYears(txns) {
   return Array.from(years).sort((a, b) => b - a);
 }
 
+function plaidTxnToLocal(row) {
+  const dateObj = row.date ? new Date(row.date + "T00:00:00") : null;
+  return {
+    id:          `plaid-${row.plaid_id}`,
+    plaidId:     row.plaid_id,
+    accountId:   row.ft_account_id,
+    date:        dateObj,
+    dateStr:     row.date ?? "",
+    description: row.description ?? "",
+    amount:      Math.abs(row.amount),
+    type:        row.type,
+    category:    row.ov_category ?? row.category ?? "Uncategorized",
+    subcategory: row.ov_subcategory ?? null,
+    // reconciled in data = "reviewed" in UI — persisted via plaid_transaction_overrides
+    reconciled:  !!(row.ov_reconciled),
+    pending:     !!row.pending,
+    isPlaid:     true,
+  };
+}
+
 // ── Component ─────────────────────────────────────────────────────
 const stored = loadStored();
 
@@ -99,6 +119,15 @@ export default function App() {
 
   // Duplicate review state — set when imported file overlaps existing transactions
   const [pendingDedup, setPendingDedup] = useState(null);
+
+  // Plaid connect state — set after successful Plaid Link flow
+  // shape: { item_id, institution_name, accounts: [{ plaid_account_id, name, type, subtype, mask, ... }] }
+  const [plaidPending,  setPlaidPending]  = useState(null);
+  // Per-account mapping choices: { [plaid_account_id]: { mode: "new"|"existing", ft_account_id?, name?, type? } }
+  const [plaidMappings,      setPlaidMappings]      = useState({});
+  const [plaidTransactions,  setPlaidTransactions]  = useState([]);
+  const [syncingAccountId,   setSyncingAccountId]   = useState(null);
+  const [syncToast,          setSyncToast]          = useState(null);
   // shape: { tagged, newFile, overlapWarning, duplicates: [{newTxn, existingTxn}], skipIds: Set<string> }
 
   const fileInputRef   = useRef(null);
@@ -350,23 +379,27 @@ export default function App() {
   }, [allTransactions, loadedFiles, budgets, openingBalance]);
 
   // ── Filtered transactions ────────────────────────────────────────
+  const allDisplayTransactions = useMemo(
+    () => [...allTransactions, ...plaidTransactions],
+    [allTransactions, plaidTransactions]
+  );
+
   const transactions = useMemo(
-    () => allTransactions.filter((t) => {
+    () => allDisplayTransactions.filter((t) => {
       const yearOk = !t.date || t.date.getFullYear() === yearFilter;
       const acctOk = accountFilter === "all" || t.accountId === accountFilter;
       return yearOk && acctOk;
     }),
-    [allTransactions, yearFilter, accountFilter]
+    [allDisplayTransactions, yearFilter, accountFilter]
   );
 
-  const years = useMemo(() => availableYears(allTransactions), [allTransactions]);
+  const years = useMemo(() => availableYears(allDisplayTransactions), [allDisplayTransactions]);
 
-  // Exclude transfers from spending/income analysis.
-  // Credit card accounts flip the logic: a CC "credit" from the CSV is a charge (expense),
-  // because the bank credits your liability account when you spend.
+  // Exclude transfers and pending transactions from spending/income analysis.
+  // Credit card accounts flip the logic: a CC "credit" from the CSV is a charge (expense).
   const expenses = useMemo(() =>
     transactions.filter((t) => {
-      if (t.transferId) return false;
+      if (t.transferId || t.pending) return false;
       const acct = accounts.find((a) => a.id === t.accountId);
       return acct?.type === "credit" ? t.type === "credit" : t.type === "debit";
     }),
@@ -374,7 +407,7 @@ export default function App() {
   );
   const income = useMemo(() =>
     transactions.filter((t) => {
-      if (t.transferId) return false;
+      if (t.transferId || t.pending) return false;
       const acct = accounts.find((a) => a.id === t.accountId);
       return acct?.type === "credit" ? t.type === "debit" : t.type === "credit";
     }),
@@ -537,6 +570,167 @@ export default function App() {
     setPendingDedup(null);
   }
 
+  // ── Plaid ────────────────────────────────────────────────────────
+  function plaidTypeToFt(pa) {
+    if (pa.type === "credit") return "credit";
+    if (pa.subtype === "savings") return "savings";
+    return "checking";
+  }
+
+  const handlePlaidConnected = useCallback((data) => {
+    // data = { item_id, institution_name, accounts: [...] }
+    // Pre-fill default mapping for each account (mode: "new", name from Plaid, type inferred)
+    const defaults = {};
+    for (const pa of data.accounts) {
+      defaults[pa.plaid_account_id] = {
+        mode: "new",
+        ft_account_id: null,
+        name: pa.name,
+        type: plaidTypeToFt(pa),
+      };
+    }
+    setPlaidMappings(defaults);
+    setPlaidPending(data);
+  }, []);
+
+  const handleConfirmPlaidMapping = useCallback(async () => {
+    if (!plaidPending) return;
+    const ftMappings = []; // [{ plaid_account_id, ft_account_id }]
+    const newAccounts = [];
+    const existingUpdates = []; // [{ ft_account_id, plaid_account_id }]
+
+    for (const pa of plaidPending.accounts) {
+      const m = plaidMappings[pa.plaid_account_id] || { mode: "new", name: pa.name, type: plaidTypeToFt(pa) };
+
+      if (m.mode === "existing" && m.ft_account_id) {
+        existingUpdates.push({ ft_account_id: m.ft_account_id, plaid_account_id: pa.plaid_account_id });
+        ftMappings.push({ plaid_account_id: pa.plaid_account_id, ft_account_id: m.ft_account_id });
+      } else {
+        const id    = `acct-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const color = ACCOUNT_COLORS[(accountsRef.current.length + newAccounts.length) % ACCOUNT_COLORS.length];
+        newAccounts.push({
+          id, color,
+          name: (m.name || pa.name).trim(),
+          type: m.type || plaidTypeToFt(pa),
+          openingBalance: 0,
+          last4: pa.mask || "",
+          plaidAccountId: pa.plaid_account_id,
+        });
+        ftMappings.push({ plaid_account_id: pa.plaid_account_id, ft_account_id: id });
+      }
+    }
+
+    // Single state update: add new + tag existing
+    setAccounts((prev) => {
+      let next = [...prev, ...newAccounts];
+      for (const u of existingUpdates) {
+        next = next.map((a) => a.id === u.ft_account_id ? { ...a, plaidAccountId: u.plaid_account_id } : a);
+      }
+      return next;
+    });
+
+    // Tell server to persist the ft_account_id linkage in SQLite
+    try {
+      await fetch("/api/plaid/link-accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mappings: ftMappings }),
+      });
+    } catch {}
+
+    setPlaidPending(null);
+    setPlaidMappings({});
+    setTab("accounts");
+  }, [plaidPending, plaidMappings, setAccounts]);
+
+  function updatePlaidMapping(plaid_account_id, field, value) {
+    setPlaidMappings((prev) => ({
+      ...prev,
+      [plaid_account_id]: { ...prev[plaid_account_id], [field]: value },
+    }));
+  }
+
+  const loadPlaidTransactions = useCallback(async (ftAccountId) => {
+    try {
+      const url = ftAccountId
+        ? `/api/plaid/transactions?ft_account_id=${encodeURIComponent(ftAccountId)}`
+        : "/api/plaid/transactions";
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const rows = await res.json();
+      const txns = rows.map(plaidTxnToLocal);
+      if (ftAccountId) {
+        setPlaidTransactions((prev) => [
+          ...prev.filter((t) => t.accountId !== ftAccountId),
+          ...txns,
+        ]);
+      } else {
+        setPlaidTransactions(txns);
+      }
+    } catch {}
+  }, []);
+
+  const handlePlaidSync = useCallback(async (acct) => {
+    setSyncingAccountId(acct.id);
+    try {
+      const res = await fetch("/api/plaid/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ft_account_id: acct.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await loadPlaidTransactions(acct.id);
+      setSyncToast(`Synced ${acct.name}: +${data.added} new, ${data.modified} updated`);
+      setTimeout(() => setSyncToast(null), 4000);
+    } catch (err) {
+      setError(`Sync failed: ${err.message}`);
+    } finally {
+      setSyncingAccountId(null);
+    }
+  }, [loadPlaidTransactions]);
+
+  const handleSyncAll = useCallback(async () => {
+    if (!accountsRef.current.some((a) => a.plaidAccountId)) return;
+    setSyncingAccountId("all");
+    try {
+      const res = await fetch("/api/plaid/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await loadPlaidTransactions();
+      setSyncToast(`Synced all accounts: +${data.added} new, ${data.modified} updated`);
+      setTimeout(() => setSyncToast(null), 4000);
+    } catch (err) {
+      setError(`Sync All failed: ${err.message}`);
+    } finally {
+      setSyncingAccountId(null);
+    }
+  }, [loadPlaidTransactions]);
+
+  const handlePlaidOverride = useCallback(async (plaidId, overrides) => {
+    setPlaidTransactions((prev) =>
+      prev.map((t) => t.plaidId === plaidId ? { ...t, ...overrides } : t)
+    );
+    try {
+      await fetch(`/api/plaid/transaction/${plaidId}/override`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(overrides),
+      });
+    } catch {}
+  }, []);
+
+  // Load existing Plaid transactions on mount
+  useEffect(() => {
+    if (accountsRef.current.some((a) => a.plaidAccountId)) {
+      loadPlaidTransactions();
+    }
+  }, [loadPlaidTransactions]);
+
   const handleDrop = useCallback((e) => {
     e.preventDefault();
     setDragging(false);
@@ -554,7 +748,7 @@ export default function App() {
     e.target.value = "";
   };
 
-  const hasData = allTransactions.length > 0;
+  const hasData = allDisplayTransactions.length > 0;
 
   const effectiveOpeningBalance = activeAccount?.openingBalance ?? openingBalance;
 
@@ -633,7 +827,9 @@ export default function App() {
             >
               <option value="all">All</option>
               {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.name.length > 14 ? a.name.slice(0, 13) + "…" : a.name}</option>
+                <option key={a.id} value={a.id}>
+                  {a.plaidAccountId ? "🔄 " : ""}{a.name.length > 14 ? a.name.slice(0, 13) + "…" : a.name}
+                </option>
               ))}
             </select>
           </div>
@@ -653,7 +849,7 @@ export default function App() {
                   { id: "category",     label: "By Category" },
                   { id: "overtime",     label: "Over Time" },
                   { id: "transactions", label: "Transactions" },
-                  { id: "reconciled",   label: "Reconciled" },
+                  { id: "reconciled",   label: "Reviewed" },
                 ].map((t) => (
                   <button
                     key={t.id}
@@ -677,6 +873,16 @@ export default function App() {
           {!collapsedGroups["files"] && (
             <>
               <div className="files-group-actions">
+                <PlaidConnect onConnected={handlePlaidConnected} />
+                {accounts.some((a) => a.plaidAccountId) && (
+                  <button
+                    className="btn-secondary"
+                    onClick={handleSyncAll}
+                    disabled={syncingAccountId !== null}
+                  >
+                    {syncingAccountId === "all" ? "Syncing…" : "🔄 Sync All"}
+                  </button>
+                )}
                 <button className="btn-import" onClick={() => fileInputRef.current.click()}>
                   + Import CSV
                 </button>
@@ -696,27 +902,6 @@ export default function App() {
                 </div>
               </div>
 
-              {loadedFiles.length > 0 && (
-                <div className="files-section">
-                  <div className="files-header">
-                    <span>Loaded files</span>
-                    <button className="btn-clear-all" onClick={clearAll}>Clear all</button>
-                  </div>
-                  {loadedFiles.map((f) => {
-                    const acct = accounts.find((a) => a.id === f.accountId);
-                    return (
-                      <div key={f.id} className="file-entry">
-                        {acct && <span className="acct-dot-sm" style={{ background: acct.color }} />}
-                        <div className="file-entry-info">
-                          <div className="file-entry-name">{f.name}</div>
-                          <div className="file-entry-meta">{acct ? acct.name + " · " : ""}{f.dateRange} · {f.count} rows</div>
-                        </div>
-                        <button className="file-entry-remove" onClick={() => removeFile(f.id)} title="Remove this file's data">✕</button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </>
           )}
           <input ref={fileInputRef} type="file" accept=".csv" style={{ display: "none" }} onChange={handleFileInput} />
@@ -735,12 +920,11 @@ export default function App() {
         <div className="top-nav">
           <div className="top-nav-items">
             {[
-              { id: "dashboard",  label: "Dashboard",     needsData: true  },
-              { id: "trends",     label: "Trends",        needsData: true  },
+              { id: "dashboard",  label: "Dashboard",      needsData: true  },
+              { id: "accounts",   label: "Accounts",       needsData: false },
+              { id: "categories", label: "Categories",     needsData: true  },
               { id: "merchants",  label: "Spend Analysis", needsData: true  },
-              { id: "budgets",    label: "Budgets",       needsData: true  },
-              { id: "accounts",   label: "Accounts",      needsData: false },
-              { id: "categories", label: "Categories",    needsData: true  },
+              { id: "budgets",    label: "Budgets",        needsData: true  },
             ].map((t) => (
               <button
                 key={t.id}
@@ -893,6 +1077,82 @@ export default function App() {
           );
         })()}
 
+        {/* ── Plaid account mapping modal ── */}
+        {plaidPending && (
+          <div className="modal-overlay" onClick={() => { setPlaidPending(null); setPlaidMappings({}); }}>
+            <div className="modal modal-plaid" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-title">Connected: {plaidPending.institution_name}</div>
+              <p className="modal-subtitle">
+                {plaidPending.accounts.length} account{plaidPending.accounts.length !== 1 ? "s" : ""} found.
+                Map each one to an existing account or create a new one.
+              </p>
+
+              {plaidPending.accounts.map((pa) => {
+                const m = plaidMappings[pa.plaid_account_id] || { mode: "new", name: pa.name, type: plaidTypeToFt(pa) };
+                return (
+                  <div key={pa.plaid_account_id} className="plaid-acct-row">
+                    <div className="plaid-acct-info">
+                      <strong>{pa.name}</strong>
+                      {pa.mask && <span className="plaid-mask"> ••{pa.mask}</span>}
+                      <span className="plaid-subtype"> · {pa.subtype}</span>
+                    </div>
+
+                    <select
+                      className="modal-select"
+                      value={m.mode === "existing" ? `existing:${m.ft_account_id}` : "new"}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "new") {
+                          updatePlaidMapping(pa.plaid_account_id, "mode", "new");
+                          updatePlaidMapping(pa.plaid_account_id, "ft_account_id", null);
+                        } else {
+                          updatePlaidMapping(pa.plaid_account_id, "mode", "existing");
+                          updatePlaidMapping(pa.plaid_account_id, "ft_account_id", val.slice(9));
+                        }
+                      }}
+                    >
+                      <option value="new">+ Create new account</option>
+                      {accounts.length > 0 && <option disabled>──────────</option>}
+                      {accounts.map((a) => (
+                        <option key={a.id} value={`existing:${a.id}`}>
+                          → Map to: {a.name}{a.last4 ? ` (••${a.last4})` : ""}
+                        </option>
+                      ))}
+                    </select>
+
+                    {m.mode !== "existing" && (
+                      <div className="plaid-new-acct-fields">
+                        <input
+                          className="modal-input"
+                          value={m.name ?? pa.name}
+                          onChange={(e) => updatePlaidMapping(pa.plaid_account_id, "name", e.target.value)}
+                          placeholder="Account name"
+                        />
+                        <select
+                          className="modal-select"
+                          value={m.type ?? plaidTypeToFt(pa)}
+                          onChange={(e) => updatePlaidMapping(pa.plaid_account_id, "type", e.target.value)}
+                        >
+                          <option value="checking">Checking</option>
+                          <option value="savings">Savings</option>
+                          <option value="credit">Credit Card</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              <div className="modal-actions">
+                <button className="btn-sm" onClick={() => { setPlaidPending(null); setPlaidMappings({}); }}>Cancel</button>
+                <button className="btn-sm btn-save" onClick={handleConfirmPlaidMapping}>
+                  Confirm &amp; Add Accounts
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {!hasData && tab !== "accounts" ? (
           <div className="empty-state">
             <div className="empty-icon">💳</div>
@@ -912,12 +1172,11 @@ export default function App() {
             {tab === "dashboard"    && <Dashboard    transactions={transactions} expenses={expenses} income={income} openingBalance={effectiveOpeningBalance} setOpeningBalance={setOpeningBalance} activeAccount={activeAccount} accounts={accounts} allTransactions={allTransactions} customCategories={customCategories} />}
             {tab === "category"     && <ByCategory   expenses={expenses} />}
             {tab === "overtime"     && <OverTime      expenses={expenses} />}
-            {tab === "trends"       && <Trends        expenses={expenses} income={income} />}
             {tab === "merchants"    && <TopMerchants  expenses={expenses} />}
             {tab === "budgets"      && <Budgets       expenses={expenses} budgets={budgets} setBudgets={setBudgets} />}
-            {tab === "transactions" && <Transactions  transactions={transactions} bulkUpdateTransactions={bulkUpdateTransactions} customCategories={customCategories} addCustomCategory={addCustomCategory} accounts={accounts} accountFilter={accountFilter} addTransaction={addTransaction} deleteTransaction={deleteTransaction} deleteTransfer={deleteTransfer} linkTransfer={linkTransfer} subcategories={subcategories} addSubcategory={addSubcategory} addTxnTrigger={addTxnTrigger} />}
-            {tab === "reconciled"   && <Reconciled    transactions={transactions} bulkUpdateTransactions={bulkUpdateTransactions} customCategories={customCategories} addCustomCategory={addCustomCategory} accounts={accounts} deleteTransaction={deleteTransaction} deleteTransfer={deleteTransfer} linkTransfer={linkTransfer} subcategories={subcategories} addSubcategory={addSubcategory} />}
-            {tab === "accounts"     && <Accounts      accounts={accounts} addAccount={addAccount} updateAccount={updateAccount} deleteAccount={deleteAccount} loadedFiles={loadedFiles} allTransactions={allTransactions} createTransfer={createTransfer} deleteTransfer={deleteTransfer} onAccountCreated={(id) => {
+            {tab === "transactions" && <Transactions  transactions={transactions} bulkUpdateTransactions={bulkUpdateTransactions} customCategories={customCategories} addCustomCategory={addCustomCategory} accounts={accounts} accountFilter={accountFilter} addTransaction={addTransaction} deleteTransaction={deleteTransaction} deleteTransfer={deleteTransfer} linkTransfer={linkTransfer} subcategories={subcategories} addSubcategory={addSubcategory} addTxnTrigger={addTxnTrigger} onPlaidOverride={handlePlaidOverride} />}
+            {tab === "reconciled"   && <Reconciled    transactions={transactions} bulkUpdateTransactions={bulkUpdateTransactions} customCategories={customCategories} addCustomCategory={addCustomCategory} accounts={accounts} deleteTransaction={deleteTransaction} deleteTransfer={deleteTransfer} linkTransfer={linkTransfer} subcategories={subcategories} addSubcategory={addSubcategory} onPlaidOverride={handlePlaidOverride} />}
+            {tab === "accounts"     && <Accounts      accounts={accounts} addAccount={addAccount} updateAccount={updateAccount} deleteAccount={deleteAccount} loadedFiles={loadedFiles} allTransactions={allDisplayTransactions} createTransfer={createTransfer} deleteTransfer={deleteTransfer} onAccountCreated={(id) => {
               setTab("transactions");
               setAccountFilter(id);
               setAddTxnTrigger((prev) => prev + 1);
@@ -925,13 +1184,14 @@ export default function App() {
               setTab("transactions");
               setAccountFilter(id);
               setAddTxnTrigger((prev) => prev + 1);
-            }} />}
+            }} onPlaidSync={handlePlaidSync} syncingAccountId={syncingAccountId} />}
             {tab === "categories"   && <Categories    transactions={allTransactions} customCategories={customCategories} subcategories={subcategories} renameCategory={renameCategory} renameSubcategory={renameSubcategory} deleteSubcategory={deleteSubcategory} addSubcategory={addSubcategory} />}
           </>
         )}
         </div>
       </main>
 
+      {syncToast && <div className="sync-toast">{syncToast}</div>}
       {showHelp    && <HelpModal    onClose={() => setShowHelp(false)} />}
       {showWelcome && <WelcomeOverlay onClose={() => setShowWelcome(false)} />}
     </div>

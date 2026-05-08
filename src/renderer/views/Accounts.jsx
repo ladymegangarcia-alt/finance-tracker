@@ -10,7 +10,7 @@ function todayStr() {
   return new Date().toISOString().split("T")[0];
 }
 
-export default function Accounts({ accounts, addAccount, updateAccount, deleteAccount, loadedFiles, allTransactions, createTransfer, deleteTransfer, onAccountCreated, onAddTransaction }) {
+export default function Accounts({ accounts, addAccount, updateAccount, deleteAccount, loadedFiles, allTransactions, createTransfer, deleteTransfer, onAccountCreated, onAddTransaction, onPlaidSync, syncingAccountId = null }) {
   const [showForm,   setShowForm]   = useState(false);
   const [editingId,  setEditingId]  = useState(null);
   const [formName,   setFormName]   = useState("");
@@ -260,24 +260,23 @@ export default function Accounts({ accounts, addAccount, updateAccount, deleteAc
                       {TYPE_LABELS[a.type] ?? a.type}
                       {a.last4 && <span className="acct-last4"> &nbsp;•••• {a.last4}</span>}
                     </div>
+                    {a.plaidAccountId && (
+                      <button
+                        className="btn-sm btn-plaid-sync"
+                        style={{ marginTop: 6 }}
+                        onClick={() => onPlaidSync?.(a)}
+                        disabled={syncingAccountId === a.id || syncingAccountId === "all"}
+                        title="Sync transactions from Plaid"
+                      >
+                        {syncingAccountId === a.id ? "Syncing…" : "🔄 Sync"}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="acct-card-stats">
                   <div className="acct-stat">
-                    <span className="acct-stat-label">Opening</span>
-                    <span className="acct-stat-val">{fmt(a.openingBalance ?? 0)}</span>
-                  </div>
-                  <div className="acct-stat">
                     <span className="acct-stat-label">Balance</span>
                     <span className={`acct-stat-val ${net >= 0 ? "pos" : "neg"}`}>{fmt(net)}</span>
-                  </div>
-                  <div className="acct-stat">
-                    <span className="acct-stat-label">Files</span>
-                    <span className="acct-stat-val">{s.fileCount}</span>
-                  </div>
-                  <div className="acct-stat">
-                    <span className="acct-stat-label">Transactions</span>
-                    <span className="acct-stat-val">{s.txCount}</span>
                   </div>
                 </div>
                 <div className="acct-card-actions">
